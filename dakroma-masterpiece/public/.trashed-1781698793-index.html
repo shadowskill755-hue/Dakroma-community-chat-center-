@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <title>DAKROMA MASTER PIECE 💜🌍</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     NOTIFICATION CONTAINER
+══════════════════════════════════════════ -->
+<div id="notifContainer"></div>
+
+<!-- ══════════════════════════════════════════
+     HOME SCREEN
+══════════════════════════════════════════ -->
+<div id="homeScreen" class="screen active">
+
+  <!-- Top nav -->
+  <div class="top-nav">
+    <button class="nav-btn" id="navBot">🤖 CHAT BOT</button>
+    <div class="online-badge">🌍 <span class="online-count">0</span> Online</div>
+    <button class="nav-btn" id="navChat">💬 GLOBAL CHAT</button>
+  </div>
+
+  <!-- Title -->
+  <div class="title-wrap">
+    <h1 class="game-title">✨ DAKROMA MASTER PIECE ✨</h1>
+    <p class="game-subtitle">💜 Real-Time Multiplayer Runner 🌍</p>
+  </div>
+
+  <!-- Main content -->
+  <div class="home-content">
+
+    <!-- Profile Panel -->
+    <div class="panel profile-panel">
+      <h2 class="panel-title">👤 PROFILE</h2>
+
+      <div class="avatar-row">
+        <div id="avatarPreview" class="avatar-box"></div>
+        <div class="avatar-info">
+          <div id="avatarName" class="avatar-name">Player</div>
+          <div id="lockStatus" class="lock-status">🟢 Name is unlocked</div>
+          <div id="nameCountdown" class="countdown-text"></div>
+        </div>
+      </div>
+
+      <div id="nameWarning" class="warning-text">⚠️ Saving locks your name for 20 days</div>
+
+      <input type="text" id="usernameInput" class="text-input"
+             placeholder="Enter username..." maxlength="20" />
+
+      <button id="saveNameBtn" class="btn btn-purple">💾 SAVE NAME</button>
+
+      <!-- Color picker -->
+      <div class="color-label">🎨 Pick Color:</div>
+      <div class="color-row">
+        <div class="color-dot" data-color="#ff4d4d" style="background:#ff4d4d" title="Red"></div>
+        <div class="color-dot" data-color="#4caf50" style="background:#4caf50" title="Green"></div>
+        <div class="color-dot" data-color="#ffeb3b" style="background:#ffeb3b" title="Yellow"></div>
+        <div class="color-dot selected" data-color="#a855f7" style="background:#a855f7" title="Purple"></div>
+        <div class="color-dot" data-color="#2196f3" style="background:#2196f3" title="Blue"></div>
+        <div class="color-dot" data-color="#ff9800" style="background:#ff9800" title="Orange"></div>
+        <div class="color-dot" data-color="#e91e63" style="background:#e91e63" title="Pink"></div>
+        <div class="color-dot" data-color="#00bcd4" style="background:#00bcd4" title="Cyan"></div>
+      </div>
+
+      <button id="editProfileBtn" class="btn btn-outline mt-8">✏️ EDIT PROFILE</button>
+    </div>
+
+    <!-- Leaderboard -->
+    <div class="panel lb-panel">
+      <h2 class="panel-title">🏆 LEADERBOARD</h2>
+      <div id="homeLeaderboard" class="lb-list">
+        <div class="lb-empty">Waiting for players...</div>
+      </div>
+      <div class="lb-footer">Live • Top 5</div>
+    </div>
+
+  </div>
+
+  <!-- PLAY button -->
+  <div class="play-wrap">
+    <button id="playBtn" class="btn btn-play">🎮 PLAY GAME</button>
+  </div>
+
+  <!-- Bottom nav bar -->
+  <nav class="bottom-nav">
+    <a class="bnav-item active" href="#">🏠<span>Home</span></a>
+    <a class="bnav-item" href="#" id="navGameBtn">🎮<span>Game</span></a>
+    <a class="bnav-item" href="https://wa.me/2349018841424" target="_blank">📱<span>WhatsApp</span></a>
+    <a class="bnav-item" href="https://www.tiktok.com/@shadowdriod" target="_blank">🎵<span>TikTok</span></a>
+  </nav>
+
+</div><!-- end homeScreen -->
+
+
+<!-- ══════════════════════════════════════════
+     LOADING SCREEN
+══════════════════════════════════════════ -->
+<div id="loadingScreen" class="screen">
+  <div class="loading-inner">
+    <div class="loading-logo">💜</div>
+    <h2 class="loading-title">DAKROMA MASTER PIECE</h2>
+    <div class="spinner"></div>
+    <div id="loadingText" class="loading-text">🔌 CONNECTING TO SERVER...</div>
+    <div class="loading-bar-bg">
+      <div id="loadingBar" class="loading-bar"></div>
+    </div>
+    <div class="loading-sub">Real-time multiplayer loading...</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     GAME SCREEN
+══════════════════════════════════════════ -->
+<div id="gameScreen" class="screen">
+
+  <!-- Death Overlay -->
+  <div id="deathOverlay" class="death-overlay">
+    <div class="death-box">
+      <div class="death-icon">💀</div>
+      <h2>YOU DIED</h2>
+      <button id="respawnBtn" class="btn btn-purple">🔄 RESPAWN</button>
+      <button id="leaveFromDeathBtn" class="btn btn-outline mt-8">🏠 HOME</button>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Mini leaderboard -->
+  <div class="game-lb">
+    <div class="game-lb-title">🏅 TOP 5</div>
+    <div id="gameLeaderboard"></div>
+  </div>
+
+  <!-- Leave button -->
+  <button id="leaveGameBtn" class="leave-btn">🚪 LEAVE</button>
+
+  <!-- Control dock -->
+  <div class="ctrl-dock">
+    <div class="ctrl-left">
+      <button class="ctrl-btn" id="btnLeft">◀</button>
+      <button class="ctrl-btn" id="btnRight">▶</button>
+      <button class="ctrl-btn ctrl-jump" id="btnJump">⬆ JUMP</button>
+    </div>
+    <div class="ctrl-center">
+      <div class="ctrl-stat">🏆 <span id="hudScore">0</span></div>
+      <div class="ctrl-stat">🌍 <span class="ingame-count">0</span></div>
+      <div class="ctrl-stat" id="hudStatus">💚 ALIVE</div>
+    </div>
+    <div class="ctrl-right">
+      <div class="ctrl-stat">📶 <span id="hudPing">--</span>ms</div>
+    </div>
+  </div>
+
+</div><!-- end gameScreen -->
+
+
+<!-- ══════════════════════════════════════════
+     GLOBAL CHAT MODAL
+══════════════════════════════════════════ -->
+<div id="chatModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>💬 GLOBAL CHAT</span>
+      <button class="modal-close" id="chatClose">✕</button>
+    </div>
+    <div id="chatMessages" class="chat-messages"></div>
+    <div id="typingIndicator" class="typing-indicator"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" class="text-input" placeholder="Message..." maxlength="200" />
+      <button id="chatSendBtn" class="btn btn-purple send-btn">➤</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     BOT MODAL
+══════════════════════════════════════════ -->
+<div id="botModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>🤖 DAKROMA BOT</span>
+      <button class="modal-close" id="botClose">✕</button>
+    </div>
+    <div id="botMessages" class="chat-messages"></div>
+    <div id="botTyping" class="typing-indicator" style="display:none">👺 typing...</div>
+    <div class="chat-input-row">
+      <input type="text" id="botInput" class="text-input" placeholder="Ask bot..." maxlength="100" />
+      <button id="botSendBtn" class="btn btn-purple send-btn">➤</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     EDIT PROFILE MODAL
+══════════════════════════════════════════ -->
+<div id="editProfileModal" class="modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>✏️ EDIT PROFILE</span>
+      <button class="modal-close" id="editProfileClose">✕</button>
+    </div>
+    <div class="edit-profile-body">
+      <div class="edit-avatar-row">
+        <div id="editAvatarPreview" class="avatar-box large"></div>
+        <div>
+          <div id="editAvatarName" class="avatar-name"></div>
+          <div id="editLockInfo" class="lock-status"></div>
+        </div>
+      </div>
+      <label class="field-label">Username</label>
+      <input type="text" id="editUsername" class="text-input" maxlength="20" />
+      <label class="field-label">Color</label>
+      <div class="color-row">
+        <div class="color-dot edit-color-dot" data-color="#ff4d4d" style="background:#ff4d4d"></div>
+        <div class="color-dot edit-color-dot" data-color="#4caf50" style="background:#4caf50"></div>
+        <div class="color-dot edit-color-dot" data-color="#ffeb3b" style="background:#ffeb3b"></div>
+        <div class="color-dot edit-color-dot selected" data-color="#a855f7" style="background:#a855f7"></div>
+        <div class="color-dot edit-color-dot" data-color="#2196f3" style="background:#2196f3"></div>
+        <div class="color-dot edit-color-dot" data-color="#ff9800" style="background:#ff9800"></div>
+        <div class="color-dot edit-color-dot" data-color="#e91e63" style="background:#e91e63"></div>
+        <div class="color-dot edit-color-dot" data-color="#00bcd4" style="background:#00bcd4"></div>
+      </div>
+      <button id="editSaveBtn" class="btn btn-purple mt-8">💾 SAVE CHANGES</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════ -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

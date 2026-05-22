@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="theme-color" content="#000a0f"/>
+<title>DAKROMA MASTER PIECE</title>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<div class="scanlines"></div>
+<canvas id="particleCanvas"></canvas>
+<div id="notifContainer"></div>
+<div class="watermark">Engine by Claude AI · Coded by David Koroma 👨‍💻</div>
+
+<div id="audioWidget" class="audio-widget" style="display:none">
+  <button id="muteBtn" class="audio-btn">🔊</button>
+</div>
+
+<!-- ══════════════ DC INTRO ══════════════ -->
+<div id="introScreen" class="screen active">
+  <div class="intro-wrap">
+    <div class="dc-logo">
+      <span class="dc-d">D</span><span class="dc-c">C</span>
+    </div>
+    <div class="intro-credits">
+      <div class="ic-line">MECHANICS RUN BY <span class="ic-claude">CLAUDE 8.0</span></div>
+      <div class="ic-line">CODED BY <span class="ic-david">DAVID KOROMA</span> 👨‍💻</div>
+      <div class="ic-year">2026</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ HOME ══════════════ -->
+<div id="homeScreen" class="screen">
+
+  <div class="top-bar">
+    <button class="cyber-btn sm" id="openBot">🤖 <span>CHAT BOT</span></button>
+    <div class="online-pill">
+      <span class="pulse-dot"></span>
+      <span class="online-count">0</span>&nbsp;ONLINE
+    </div>
+    <button class="cyber-btn sm" id="openChat">💬 <span>GLOBAL CHAT</span></button>
+  </div>
+
+  <div class="title-section">
+    <div class="title-line1">DAKROMA</div>
+    <div class="title-line2">MASTER PIECE</div>
+    <div class="title-sub">◈ CYBER HILL CLIMB RACING · MULTIPLAYER ◈</div>
+  </div>
+
+  <div class="home-grid">
+
+    <div class="holo-panel">
+      <div class="panel-label">◈ AGENT PROFILE</div>
+      <div class="agent-row">
+        <div id="avatarBox" class="agent-avatar">
+          <div class="avatar-inner"></div>
+          <div class="avatar-ring"></div>
+        </div>
+        <div class="agent-info">
+          <div id="avatarName"  class="agent-name">UNKNOWN</div>
+          <div id="lockStatus"  class="lock-badge unlocked">◉ UNLOCKED</div>
+          <div id="countdown"   class="cd-text"></div>
+        </div>
+      </div>
+      <div id="saveWarning" class="warn-bar">⚠ SAVING LOCKS NAME FOR 20 DAYS</div>
+      <input id="usernameInput" class="cyber-input" type="text"
+             placeholder="ENTER RACER NAME…" maxlength="20"/>
+      <button id="saveNameBtn" class="cyber-btn full">◈ SAVE NAME</button>
+      <div class="clr-label">◈ CAR COLOR</div>
+      <div class="clr-row">
+        <div class="clr-dot" data-c="#ff2244" style="--c:#ff2244"></div>
+        <div class="clr-dot" data-c="#00ff88" style="--c:#00ff88"></div>
+        <div class="clr-dot" data-c="#ffdd00" style="--c:#ffdd00"></div>
+        <div class="clr-dot selected" data-c="#00ffff" style="--c:#00ffff"></div>
+        <div class="clr-dot" data-c="#aa44ff" style="--c:#aa44ff"></div>
+        <div class="clr-dot" data-c="#ff6600" style="--c:#ff6600"></div>
+      </div>
+      <button id="editProfileBtn" class="cyber-btn full outline mt8">✏ EDIT PROFILE</button>
+      <div id="bestTimeBar" class="best-score-bar" style="display:none">
+        ◈ BEST TIME: <span id="bestTimeVal">--</span>
+      </div>
+    </div>
+
+    <div class="holo-panel">
+      <div class="panel-label">◈ RACE LOBBY</div>
+      <div id="homeLb" class="lb-list">
+        <div class="lb-empty">AWAITING RACERS…</div>
+      </div>
+      <div id="waitingText" class="lb-footer">
+        <span class="pulse-dot"></span>&nbsp;WAITING FOR 5 RACERS
+      </div>
+      <button id="openLb" class="cyber-btn full outline mt8">🏆 GLOBAL LEADERBOARD</button>
+    </div>
+
+  </div>
+
+  <div class="play-zone">
+    <button id="playBtn" class="play-btn">
+      <span class="play-icon">▶</span>
+      <span>JOIN RACE</span>
+    </button>
+  </div>
+
+  <nav class="bottom-nav">
+    <a class="bnav active" href="#">⬡<span>HOME</span></a>
+    <a class="bnav" href="#" id="navGame">⬡<span>RACE</span></a>
+    <a class="bnav" href="https://wa.me/2349018841424" target="_blank">⬡<span>WHATSAPP</span></a>
+    <a class="bnav" href="https://www.tiktok.com/@shadowdroid" target="_blank">⬡<span>TIKTOK</span></a>
+  </nav>
+
+</div>
+
+<!-- ══════════════ LOADING ══════════════ -->
+<div id="loadingScreen" class="screen">
+  <div class="ld-wrap">
+    <div class="ld-hex">⬡</div>
+    <div class="ld-title">JOINING RACE</div>
+    <div class="ld-spin-ring"></div>
+    <div id="ldText" class="ld-text">🔌 CONNECTING…</div>
+    <div class="ld-steps" id="ldSteps"></div>
+    <div class="ld-bar-bg"><div id="ldBar" class="ld-bar"></div></div>
+    <div class="ld-hint">DAKROMA MASTER PIECE v7.0</div>
+  </div>
+</div>
+
+<!-- ══════════════ GAME ══════════════ -->
+<div id="gameScreen" class="screen">
+
+  <!-- Lobby overlay -->
+  <div id="lobbyOverlay" class="lobby-overlay" style="display:none">
+    <div class="lobby-card">
+      <div class="lobby-title">◈ RACE LOBBY</div>
+      <div id="lobbyWaitText" class="lobby-wait">WAITING FOR RACERS…</div>
+      <div id="lobbyPlayerList" class="lobby-player-list"></div>
+      <div class="lobby-hint">Race starts automatically</div>
+      <button onclick="leaveGame()" class="cyber-btn full outline mt8">✕ LEAVE</button>
+    </div>
+  </div>
+
+  <!-- Countdown -->
+  <div id="countdownOverlay" class="countdown-overlay" style="display:none">
+    <div class="countdown-inner">
+      <div class="countdown-label">RACE STARTS IN</div>
+      <div id="countdownNum" class="countdown-num">3</div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="resultsOverlay" class="results-overlay" style="display:none">
+    <div class="results-card">
+      <div class="results-title">🏁 RACE RESULTS</div>
+      <div id="resultsList" class="results-list"></div>
+      <button id="playAgainBtn"   class="cyber-btn full mt8">▶ RACE AGAIN</button>
+      <button id="leaveResultBtn" class="cyber-btn full outline mt8">⬡ HOME</button>
+    </div>
+  </div>
+
+  <!-- Death overlay -->
+  <div id="deathOverlay" class="death-overlay" style="display:none">
+    <div class="death-card">
+      <div class="death-hex">⬡</div>
+      <div class="death-title">SIGNAL LOST</div>
+      <button id="respawnBtn"    class="cyber-btn full">◈ REJOIN RACE</button>
+      <button id="leaveDeathBtn" class="cyber-btn full outline mt8">⬡ EXIT</button>
+    </div>
+  </div>
+
+  <div id="cpToast" class="cp-toast">◈ CHECKPOINT SAVED</div>
+
+  <!-- Top HUD -->
+  <div class="game-hud">
+    <div class="hud-left">
+      <div class="hud-chip">
+        <span class="hud-label">DIST</span>
+        <span id="hudScore" class="hud-val">0m</span>
+      </div>
+      <div class="hud-chip">
+        <span class="hud-label">TIME</span>
+        <span id="hudTimer" class="hud-val cyan">0s</span>
+      </div>
+      <div class="hud-chip">
+        <span class="hud-label">CP</span>
+        <span id="hudCp" class="hud-val cyan">0</span>
+      </div>
+      <div class="hud-chip">
+        <span class="hud-label">STATUS</span>
+        <span id="hudStatus" class="hud-val green">READY</span>
+      </div>
+    </div>
+    <div class="hud-right">
+      <button id="leaveGameBtn" class="hud-leave">✕ EXIT</button>
+      <div class="game-lb-panel">
+        <div class="glp-title">◈ RACE POSITIONS</div>
+        <div id="gameLb"></div>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Desktop dock — NO JUMP BUTTON -->
+  <div class="ctrl-dock" id="ctrlDock">
+    <div class="dock-left">
+      <button class="dbtn brake-btn" id="btnLeft">◀ BRAKE</button>
+      <button class="dbtn gas-btn"   id="btnRight">GAS ▶</button>
+    </div>
+    <div class="dock-center">
+      <div class="dc-stat">DIST <span id="dScore">0</span>m</div>
+      <div class="dc-stat">ONLINE <span class="ingame-count">0</span></div>
+      <div class="dc-stat" id="dStatus">◉ RACING</div>
+    </div>
+    <div class="dock-right">
+      <button class="dbtn sm-d" onclick="leaveGame()">✕</button>
+      <button class="dbtn sm-d" id="settingsBtn">⚙</button>
+      <div class="dc-stat">PING <span id="pingVal">--</span>ms</div>
+    </div>
+  </div>
+
+  <!-- Mobile controls — NO JUMP, just BRAKE and GAS -->
+  <div class="mobile-ctrl" id="mobileCtrl">
+    <div class="mc-row">
+      <button class="mbtn brake-mbtn" id="mLeft">◀<span>BRAKE</span></button>
+      <button class="mbtn gas-mbtn"   id="mRight">▶<span>GAS</span></button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════ GLOBAL LEADERBOARD MODAL ══════════════ -->
+<div id="lbModal" class="modal">
+  <div class="modal-card lb-modal-card">
+    <div class="modal-hdr">
+      <span>🏆 GLOBAL LEADERBOARD</span>
+      <button class="x-btn" id="lbClose">✕</button>
+    </div>
+    <div class="lb-modal-body">
+      <div class="lb-tab-row">
+        <button class="lb-tab active" onclick="switchLbTab('dist',this)">📏 DISTANCE</button>
+        <button class="lb-tab"        onclick="switchLbTab('wins',this)">🏆 WINS</button>
+      </div>
+      <div id="lbDistSection" class="lb-section">
+        <div class="lb-section-title">◈ TOP DISTANCE RACERS</div>
+        <div id="lbDistList" class="glb-list"></div>
+      </div>
+      <div id="lbWinsSection" class="lb-section" style="display:none">
+        <div class="lb-section-title">◈ TOP RACE WINNERS</div>
+        <div id="lbWinsList" class="glb-list"></div>
+      </div>
+      <div class="lb-live-badge">
+        <span class="pulse-dot"></span>&nbsp;LIVE · PERSISTENT · SERVER-SIDE
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ CHAT MODAL ══════════════ -->
+<div id="chatModal" class="modal">
+  <div class="modal-card">
+    <div class="modal-hdr"><span>◈ GLOBAL CHAT</span>
+      <button class="x-btn" id="chatClose">✕</button></div>
+    <div id="chatMsgs" class="msg-feed"></div>
+    <div id="typingInd" class="typing-ind"></div>
+    <div class="msg-row">
+      <input id="chatInp" class="cyber-input" type="text"
+             placeholder="TRANSMIT…" maxlength="200"/>
+      <button id="chatSend" class="cyber-btn icon-btn">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ BOT MODAL ══════════════ -->
+<div id="botModal" class="modal">
+  <div class="modal-card">
+    <div class="modal-hdr"><span>◈ DAKROMA AI</span>
+      <button class="x-btn" id="botClose">✕</button></div>
+    <div id="botMsgs" class="msg-feed"></div>
+    <div id="botTyping" class="typing-ind" style="display:none">
+      <span class="typing-dots"><span></span><span></span><span></span></span>
+      AI PROCESSING…
+    </div>
+    <div class="msg-row">
+      <input id="botInp" class="cyber-input" type="text"
+             placeholder="QUERY AI…" maxlength="100"/>
+      <button id="botSend" class="cyber-btn icon-btn">➤</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ EDIT PROFILE ══════════════ -->
+<div id="editModal" class="modal">
+  <div class="modal-card">
+    <div class="modal-hdr"><span>◈ EDIT AGENT</span>
+      <button class="x-btn" id="editClose">✕</button></div>
+    <div class="edit-body">
+      <div class="agent-row">
+        <div id="editAvBox" class="agent-avatar">
+          <div class="avatar-inner"></div><div class="avatar-ring"></div>
+        </div>
+        <div class="agent-info">
+          <div id="editAvName"   class="agent-name">—</div>
+          <div id="editLockLine" class="lock-badge unlocked"></div>
+        </div>
+      </div>
+      <label class="field-lbl">AGENT NAME</label>
+      <input id="editUname" class="cyber-input" type="text" maxlength="20"/>
+      <label class="field-lbl">CAR COLOR</label>
+      <div class="clr-row">
+        <div class="clr-dot edit-clr" data-c="#ff2244" style="--c:#ff2244"></div>
+        <div class="clr-dot edit-clr" data-c="#00ff88" style="--c:#00ff88"></div>
+        <div class="clr-dot edit-clr" data-c="#ffdd00" style="--c:#ffdd00"></div>
+        <div class="clr-dot edit-clr selected" data-c="#00ffff" style="--c:#00ffff"></div>
+        <div class="clr-dot edit-clr" data-c="#aa44ff" style="--c:#aa44ff"></div>
+        <div class="clr-dot edit-clr" data-c="#ff6600" style="--c:#ff6600"></div>
+      </div>
+      <button id="editSave" class="cyber-btn full mt8">◈ SAVE CHANGES</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SETTINGS ══════════════ -->
+<div id="settingsModal" class="modal">
+  <div class="modal-card">
+    <div class="modal-hdr"><span>⚙ SETTINGS</span>
+      <button class="x-btn" id="settingsClose">✕</button></div>
+    <div class="edit-body">
+      <label class="field-lbl">MASTER VOLUME</label>
+      <input type="range" id="masterSlider" class="vol-slider" min="0" max="1" step="0.05" value="0.7"/>
+      <label class="field-lbl">MUSIC VOLUME</label>
+      <input type="range" id="bgmSlider2"   class="vol-slider" min="0" max="1" step="0.05" value="0.35"/>
+      <label class="field-lbl">SFX VOLUME</label>
+      <input type="range" id="sfxSlider2"   class="vol-slider" min="0" max="1" step="0.05" value="0.8"/>
+      <button id="clearProgressBtn" class="cyber-btn full outline mt8">🗑 CLEAR PROGRESS</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchLbTab(tab, btn) {
+  document.querySelectorAll('.lb-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('lbDistSection').style.display = tab === 'dist' ? 'block' : 'none';
+  document.getElementById('lbWinsSection').style.display = tab === 'wins' ? 'block' : 'none';
+}
+</script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="sound.js"></script>
+<script src="progress.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

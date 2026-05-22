@@ -1,0 +1,195 @@
+// ============================================================
+// Sidebar – rooms list + online users
+// ============================================================
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuth }    from "../context/AuthContext";
+import useChatStore   from "../context/chatStore";
+import socket         from "../services/socket";
+
+const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+
+const Sidebar = ({ mobileOpen, onClose }) => {
+  const { user, profile, logout } = useAuth();
+  const { rooms, onlineUsers, activeRoom, setActiveRoom, addRoom } = useChatStore();
+  const [tab,         setTab]         = useState("rooms");   // rooms | users
+  const [creating,    setCreating]    = useState(false);
+  const [newRoom,     setNewRoom]     = useState({ name: "", description: "", icon: "💬" });
+
+  // Load rooms from backend on mount
+  useEffect(() => {
+    fetch(`${BACKEND}/api/rooms`)
+      .then((r) => r.json())
+      .then((data) => useChatStore.getState().setRooms(data))
+      .catch(() => {});
+  }, []);
+
+  const joinRoom = (room) => {
+    socket.emit("room:join", { roomId: room.id, roomName: room.name });
+    setActiveRoom(room.id);
+    onClose?.();
+  };
+
+  const createRoom = async () => {
+    if (!newRoom.name.trim()) return;
+    const res  = await fetch(`${BACKEND}/api/rooms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...newRoom, createdBy: profile?.username }),
+    });
+    const room = await res.json();
+    addRoom(room);
+    socket.emit("room:created", room);
+    joinRoom(room);
+    setCreating(false);
+    setNewRoom({ name: "", description: "", icon: "💬" });
+  };
+
+  const xpPercent = Math.min(((profile?.xp || 0) % 1000) / 10, 100);
+
+  return (
+    <aside className={`fixed md:relative inset-y-0 left-0 z-40 w-72 flex flex-col glass border-r border-cyber-border transition-transform duration-300
+      ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
+
+      {/* ── Brand header ──────────────────────────────────── */}
+      <div className="p-4 border-b border-cyber-border flex items-center justify-between">
+        <div>
+          <h1 className="font-cyber text-sm neon-text-cyan tracking-wider">𝖒𝖗᭄𝕯𝖆𝖐𝖗𝖔𝖒𝖆꧂</h1>
+          <p className="text-xs text-cyber-muted font-mono mt-0.5">COMMUNITY GRID</p>
+        </div>
+        <button onClick={onClose} className="md:hidden text-cyber-muted hover:text-cyber-pink text-xl">✕</button>
+      </div>
+
+      {/* ── User profile card ─────────────────────────────── */}
+      <div className="p-3 border-b border-cyber-border">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <img
+              src={profile?.avatar || `https://api.dicebear.com/7.x/cyberpunk/svg?seed=${profile?.username}`}
+              alt="avatar"
+              className="w-10 h-10 rounded-full border border-cyber-cyan/40"
+            />
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-cyber-green border-2 border-cyber-panel" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-cyber text-xs text-white truncate">{profile?.username || "PILOT"}</p>
+            <p className="text-xs text-cyber-muted font-mono">LVL {profile?.level || 1}</p>
+          </div>
+          <button onClick={logout} title="Logout"
+            className="text-cyber-muted hover:text-cyber-pink text-sm transition-colors">⏻</button>
+        </div>
+        {/* XP bar */}
+        <div className="mt-2">
+          <div className="h-1 bg-cyber-border rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full transition-all"
+              style={{ width: `${xpPercent}%` }} />
+          </div>
+          <p className="text-xs text-cyber-muted font-mono mt-0.5">{profile?.xp || 0} XP</p>
+        </div>
+      </div>
+
+      {/* ── Tab switcher ──────────────────────────────────── */}
+      <div className="flex border-b border-cyber-border">
+        {["rooms","users"].map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`flex-1 py-2 text-xs font-cyber tracking-widest uppercase transition-colors
+              ${tab === t ? "text-cyber-cyan border-b border-cyber-cyan" : "text-cyber-muted hover:text-cyber-text"}`}>
+            {t === "rooms" ? "# Rooms" : "👥 Online"}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Scrollable content ────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        {tab === "rooms" ? (
+          <>
+            {rooms.map((room) => (
+              <motion.button key={room.id} onClick={() => joinRoom(room)}
+                whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}
+                className={`w-full text-left px-3 py-2.5 rounded-lg transition-all flex items-center gap-3 group
+                  ${activeRoom === room.id
+                    ? "bg-cyan-500/15 border border-cyan-500/30 text-white"
+                    : "hover:bg-cyber-card border border-transparent text-cyber-muted hover:text-cyber-text"}`}>
+                <span className="text-lg">{room.icon}</span>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-sm font-semibold truncate ${activeRoom === room.id ? "neon-text-cyan" : ""}`}>
+                    #{room.name}
+                  </p>
+                  {room.description && (
+                    <p className="text-xs text-cyber-muted truncate">{room.description}</p>
+                  )}
+                </div>
+                {activeRoom === room.id && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyber-cyan flex-shrink-0" />
+                )}
+              </motion.button>
+            ))}
+
+            {/* Create room button */}
+            <button onClick={() => setCreating(true)}
+              className="w-full text-left px-3 py-2 text-xs text-cyber-muted hover:text-cyber-cyan font-mono flex items-center gap-2 transition-colors mt-2">
+              <span className="text-lg">＋</span> Create Room
+            </button>
+          </>
+        ) : (
+          onlineUsers.length === 0
+            ? <p className="text-xs text-cyber-muted text-center mt-8 font-mono">No pilots online</p>
+            : onlineUsers.map((u, i) => (
+              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-cyber-card transition-colors">
+                <div className="relative flex-shrink-0">
+                  <img src={u.avatar || `https://api.dicebear.com/7.x/cyberpunk/svg?seed=${u.username}`}
+                    alt="" className="w-8 h-8 rounded-full border border-cyber-border" />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-cyber-green border-2 border-cyber-panel" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-cyber-text truncate">{u.username}</p>
+                  <p className="text-xs text-cyber-muted font-mono truncate">#{u.room || "global"}</p>
+                </div>
+              </div>
+            ))
+        )}
+      </div>
+
+      {/* ── Online count footer ───────────────────────────── */}
+      <div className="p-3 border-t border-cyber-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
+          <span className="text-xs font-mono text-cyber-muted">{onlineUsers.length} online</span>
+        </div>
+        <a href="https://vm.tiktok.com/ZS9Y5So3xkPwN-vpVYK/" target="_blank" rel="noopener noreferrer"
+          className="text-xs font-mono text-cyber-pink hover:text-cyber-cyan transition-colors flex items-center gap-1">
+          🎵 TikTok
+        </a>
+      </div>
+
+      {/* ── Create room modal ─────────────────────────────── */}
+      <AnimatePresence>
+        {creating && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-cyber-bg/90 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
+              className="glass-card rounded-xl p-5 w-full neon-border-cyan space-y-4">
+              <h3 className="font-cyber text-sm neon-text-cyan">CREATE ROOM</h3>
+              <div className="flex gap-2">
+                <input className="cyber-input w-16 rounded-lg px-2 py-2 text-center text-xl"
+                  value={newRoom.icon} onChange={(e) => setNewRoom((r) => ({ ...r, icon: e.target.value }))} maxLength={2} />
+                <input className="cyber-input flex-1 rounded-lg px-3 py-2 text-sm"
+                  placeholder="Room name..." value={newRoom.name}
+                  onChange={(e) => setNewRoom((r) => ({ ...r, name: e.target.value }))} />
+              </div>
+              <input className="cyber-input w-full rounded-lg px-3 py-2 text-sm"
+                placeholder="Description (optional)" value={newRoom.description}
+                onChange={(e) => setNewRoom((r) => ({ ...r, description: e.target.value }))} />
+              <div className="flex gap-2">
+                <button onClick={() => setCreating(false)} className="flex-1 btn-cyber btn-cyber-pink rounded-lg py-2 text-xs">CANCEL</button>
+                <button onClick={createRoom} className="flex-1 btn-cyber rounded-lg py-2 text-xs">CREATE ⚡</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </aside>
+  );
+};
+
+export default Sidebar;

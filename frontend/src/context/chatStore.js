@@ -1,12 +1,9 @@
-// ============================================================
-// Global chat store via Zustand
-// ============================================================
 import { create } from "zustand";
 
 const useChatStore = create((set, get) => ({
-  messages:     {},   // { [roomId]: Message[] }
+  messages:     {},
   onlineUsers:  [],
-  typingUsers:  {},   // { [roomId]: { uid, username }[] }
+  typingUsers:  {},
   rooms:        [],
   activeRoom:   "global",
   systemMsgs:   [],
@@ -37,8 +34,14 @@ const useChatStore = create((set, get) => ({
   addRoom: (room) =>
     set((s) => ({ rooms: [...s.rooms.filter((r) => r.id !== room.id), room] })),
 
-  addSystemMsg: (msg) =>
-    set((s) => ({ systemMsgs: [...s.systemMsgs.slice(-50), { ...msg, id: Date.now() }] })),
+  addSystemMsg: (msg) => {
+    const id = Date.now();
+    set((s) => ({ systemMsgs: [...s.systemMsgs.slice(-2), { ...msg, id }] }));
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+      set((s) => ({ systemMsgs: s.systemMsgs.filter((m) => m.id !== id) }));
+    }, 3000);
+  },
 
   applyReaction: ({ messageId, emoji, uid, room }) =>
     set((s) => {

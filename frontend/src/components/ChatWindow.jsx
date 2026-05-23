@@ -1,5 +1,5 @@
 // ============================================================
-// ChatWindow – messages + input area
+// ChatWindow – messages + input + bot commands + group info
 // ============================================================
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -7,12 +7,19 @@ import { useAuth }      from "../context/AuthContext";
 import useChatStore     from "../context/chatStore";
 import socket           from "../services/socket";
 import MessageBubble    from "./MessageBubble";
+import GroupInfo        from "./GroupInfo";
+import { processBotCommand, BotMessage } from "./GroupBot";
+import { notify } from "./NotificationSystem";
+import { playSound } from "./SoundManager";
+import { getRank } from "./RankSystem";
 
 const ChatWindow = ({ onMenuOpen }) => {
-  const { user, profile }  = useAuth();
+  const { user, profile, saveProfile } = useAuth();
   const { messages, typingUsers, activeRoom, rooms, onlineUsers, systemMsgs } = useChatStore();
-  const [text, setText]    = useState("");
-  const [typing, setTyping]= useState(false);
+  const [text, setText]       = useState("");
+  const [typing, setTyping]   = useState(false);
+  const [showInfo, setShowInfo]= useState(false);
+  const [botMsgs, setBotMsgs] = useState({});
   const endRef   = useRef(null);
   const typingTimer = useRef(null);
 
@@ -20,13 +27,33 @@ const ChatWindow = ({ onMenuOpen }) => {
   const roomTyping   = typingUsers[activeRoom] || [];
   const currentRoom  = rooms.find((r) => r.id === activeRoom);
   const onlineHere   = onlineUsers.filter((u) => u.room === activeRoom);
+  const recentSystem = systemMsgs.slice(-3);
 
-  // Auto scroll
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [roomMessages.length, roomTyping.length]);
 
-  // Typing indicator logic
+  // Award XP on message send
+  const awardXP = useCallback(() => {
+    const currentXP = profile?.xp || 0;
+    const newXP = currentXP + 10;
+    const oldRank = getRank(currentXP);
+    const newRank = getRank(newXP);
+    saveProfile(user.uid, { xp: newXP });
+    if (newRank.tier > oldRank.tier) {
+      notify(`🏆 RANK UP! You are now ${newRank.icon} ${newRank.name}!`, "rank", 5000);
+      playSound("levelup");
+    }
+  }, [profile, user, saveProfile]);
+
+  const addBotMessage = (text, room) => {
+    const id = Date.now();
+    setBotMsgs((prev) => ({
+      ...prev,
+      [room || activeRoom]: [...(prev[room || activeRoom] || []), { id, text }],
+    }));
+  };
+
   const handleInput = (e) => {
     setText(e.target.value);
     if (!typing) {
@@ -42,45 +69,68 @@ const ChatWindow = ({ onMenuOpen }) => {
 
   const send = useCallback(() => {
     if (!text.trim()) return;
-    socket.emit("message:send", { text: text.trim(), room: activeRoom });
-    // Award XP locally (real XP would be tracked server-side)
+    const trimmed = text.trim();
+
+    // Check for bot command
+    if (trimmed.startsWith("dk.")) {
+      const isAdmin = currentRoom?.createdBy === user?.uid ||
+        currentRoom?.admins?.includes(user?.uid);
+      processBotCommand({
+        text: trimmed,
+        sender: { ...profile, uid: user?.uid },
+        members: onlineHere,
+        roomId: activeRoom,
+        isAdmin,
+        addBotMessage,
+        onAnnounce: (msg) => {
+          socket.emit("message:send", { text: msg, room: activeRoom });
+        },
+      });
+      setText("");
+      return;
+    }
+
+    socket.emit("message:send", { text: trimmed, room: activeRoom });
+    awardXP();
     setText("");
+    playSound("message");
     clearTimeout(typingTimer.current);
     setTyping(false);
     socket.emit("typing:stop", { room: activeRoom });
-  }, [text, activeRoom]);
+  }, [text, activeRoom, profile, user, currentRoom, onlineHere, awardXP]);
 
   const onKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  // Recent system msgs for this room (last 3 unique)
-  const recentSystem = systemMsgs.slice(-3);
+  // Merge real messages with bot messages
+  const allMessages = [
+    ...(roomMessages || []),
+    ...(botMsgs[activeRoom] || []).map((m) => ({ ...m, isBot: true })),
+  ].sort((a, b) => (a.timestamp || a.id) - (b.timestamp || b.id));
 
   return (
     <main className="flex-1 flex flex-col min-h-0 relative">
-      {/* ── Header ────────────────────────────────────────── */}
+      {/* Header */}
       <div className="glass border-b border-cyber-border px-4 py-3 flex items-center gap-3 flex-shrink-0">
-        {/* Mobile menu toggle */}
-        <button onClick={onMenuOpen}
-          className="md:hidden text-cyber-muted hover:text-cyber-cyan text-xl mr-1">☰</button>
-
+        <button onClick={onMenuOpen} className="md:hidden text-cyber-muted hover:text-cyber-cyan text-xl mr-1">☰</button>
         <span className="text-2xl">{currentRoom?.icon || "🌐"}</span>
-        <div>
+        <div className="flex-1">
           <h2 className="font-cyber text-sm text-white">#{currentRoom?.name || "global"}</h2>
-          <p className="text-xs text-cyber-muted font-mono">
-            {onlineHere.length} pilot{onlineHere.length !== 1 ? "s" : ""} in room
-          </p>
+          <p className="text-xs text-cyber-muted font-mono">{onlineHere.length} pilot{onlineHere.length !== 1 ? "s" : ""} in room</p>
         </div>
 
-        {/* Live online badge */}
-        <div className="ml-auto flex items-center gap-2 glass rounded-full px-3 py-1 neon-border-cyan">
+        {/* Group info button */}
+        <button onClick={() => { playSound("click"); setShowInfo(true); }}
+          className="text-cyber-muted hover:text-cyber-cyan transition-colors text-xl">ℹ️</button>
+
+        <div className="flex items-center gap-2 glass rounded-full px-3 py-1 neon-border-cyan">
           <span className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
           <span className="text-xs font-mono text-cyber-cyan">{onlineUsers.length} ONLINE</span>
         </div>
       </div>
 
-      {/* ── System messages toast ─────────────────────────── */}
+      {/* System messages */}
       <AnimatePresence>
         {recentSystem.length > 0 && (
           <div className="absolute top-16 left-0 right-0 z-10 flex flex-col items-center gap-1 pointer-events-none">
@@ -89,7 +139,6 @@ const ChatWindow = ({ onMenuOpen }) => {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
                 className="glass rounded-full px-4 py-1 text-xs font-mono text-cyber-yellow border border-yellow-500/20">
                 {s.text}
               </motion.div>
@@ -98,9 +147,9 @@ const ChatWindow = ({ onMenuOpen }) => {
         )}
       </AnimatePresence>
 
-      {/* ── Messages area ─────────────────────────────────── */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
-        {roomMessages.length === 0 ? (
+        {allMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full opacity-40 gap-4">
             <div className="text-6xl">{currentRoom?.icon || "⚡"}</div>
             <p className="font-cyber text-sm text-cyber-muted text-center">
@@ -108,22 +157,19 @@ const ChatWindow = ({ onMenuOpen }) => {
             </p>
           </div>
         ) : (
-          roomMessages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              msg={msg}
-              isOwn={msg.uid === user?.uid}
-            />
-          ))
+          allMessages.map((msg) =>
+            msg.isBot ? (
+              <BotMessage key={msg.id} text={msg.text} />
+            ) : (
+              <MessageBubble key={msg.id} msg={msg} isOwn={msg.uid === user?.uid} />
+            )
+          )
         )}
 
         {/* Typing indicators */}
         <AnimatePresence>
           {roomTyping.filter((u) => u.uid !== user?.uid).map((u) => (
-            <motion.div key={u.uid}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
+            <motion.div key={u.uid} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               className="flex items-center gap-2">
               <img src={`https://api.dicebear.com/7.x/cyberpunk/svg?seed=${u.username}`}
                 className="w-6 h-6 rounded-full border border-cyber-border" alt="" />
@@ -138,60 +184,53 @@ const ChatWindow = ({ onMenuOpen }) => {
             </motion.div>
           ))}
         </AnimatePresence>
-
         <div ref={endRef} />
       </div>
 
-      {/* ── Input bar ─────────────────────────────────────── */}
+      {/* Input */}
       <div className="glass border-t border-cyber-border p-3 flex-shrink-0">
         <div className="flex gap-2 items-end">
           <div className="flex-1 relative">
             <textarea
               className="cyber-input w-full rounded-xl px-4 py-3 text-sm resize-none leading-relaxed"
               rows={1}
-              placeholder={`Transmit to #${currentRoom?.name || "global"}...`}
+              placeholder={`Transmit to #${currentRoom?.name || "global"}... (dk. for bot)`}
               value={text}
               onChange={handleInput}
               onKeyDown={onKey}
               style={{ maxHeight: "120px", overflowY: "auto" }}
             />
-            {/* Character count */}
-            {text.length > 200 && (
-              <span className={`absolute bottom-2 right-3 text-xs font-mono
-                ${text.length > 480 ? "text-cyber-red" : "text-cyber-muted"}`}>
-                {text.length}/500
-              </span>
-            )}
           </div>
-
-          <motion.button
-            onClick={send}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+          <motion.button onClick={send} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
             disabled={!text.trim()}
-            className="btn-cyber rounded-xl px-4 py-3 text-lg flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ minWidth: "52px", height: "52px" }}
-          >
+            className="btn-cyber rounded-xl px-4 py-3 text-lg flex items-center justify-center disabled:opacity-30"
+            style={{ minWidth: "52px", height: "52px" }}>
             ⚡
           </motion.button>
         </div>
 
-        {/* TikTok footer link */}
+        {/* TikTok link */}
         <div className="mt-2 flex justify-center">
-          <a
-            href="https://vm.tiktok.com/ZS9Y5So3xkPwN-vpVYK/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 glass rounded-full px-4 py-1.5 neon-border-pink hover:border-cyber-pink transition-all group"
-          >
+          <a href="https://vm.tiktok.com/ZS9Y5So3xkPwN-vpVYK/" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 glass rounded-full px-4 py-1.5 neon-border-pink hover:border-cyber-pink transition-all group">
             <span className="text-sm">🎵</span>
-            <span className="text-xs font-cyber text-cyber-pink group-hover:neon-text-pink tracking-wider">
-              WATCH ON TIKTOK
-            </span>
+            <span className="text-xs font-cyber text-cyber-pink group-hover:neon-text-pink tracking-wider">WATCH ON TIKTOK</span>
             <span className="text-xs text-cyber-muted">↗</span>
           </a>
         </div>
       </div>
+
+      {/* Group Info */}
+      <AnimatePresence>
+        {showInfo && (
+          <GroupInfo
+            group={currentRoom}
+            members={onlineHere}
+            onClose={() => setShowInfo(false)}
+            onAnnounce={(msg) => socket.emit("message:send", { text: msg, room: activeRoom })}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 };

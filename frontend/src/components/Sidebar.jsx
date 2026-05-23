@@ -1,24 +1,26 @@
 // ============================================================
-// Sidebar – rooms list + online users
+// Sidebar – rooms list + online users + profile editor
 // ============================================================
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth }    from "../context/AuthContext";
 import useChatStore   from "../context/chatStore";
-import ProfileEditor from "./ProfileEditor";
 import socket         from "../services/socket";
+import ProfileEditor  from "./ProfileEditor";
+import { RankBadge, XPBar } from "./RankSystem";
+import { notify } from "./NotificationSystem";
+import { playSound } from "./SoundManager";
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
 
 const Sidebar = ({ mobileOpen, onClose }) => {
   const { user, profile, logout } = useAuth();
   const { rooms, onlineUsers, activeRoom, setActiveRoom, addRoom } = useChatStore();
-  const [tab,         setTab]         = useState("rooms");   // rooms | users
-  const [editProfile, setEditProfile] = useState(false);
+  const [tab,         setTab]         = useState("rooms");
   const [creating,    setCreating]    = useState(false);
   const [newRoom,     setNewRoom]     = useState({ name: "", description: "", icon: "💬" });
+  const [showProfile, setShowProfile] = useState(false);
 
-  // Load rooms from backend on mount
   useEffect(() => {
     fetch(`${BACKEND}/api/rooms`)
       .then((r) => r.json())
@@ -29,12 +31,13 @@ const Sidebar = ({ mobileOpen, onClose }) => {
   const joinRoom = (room) => {
     socket.emit("room:join", { roomId: room.id, roomName: room.name });
     setActiveRoom(room.id);
+    playSound("click");
     onClose?.();
   };
 
   const createRoom = async () => {
     if (!newRoom.name.trim()) return;
-    const res  = await fetch(`${BACKEND}/api/rooms`, {
+    const res = await fetch(`${BACKEND}/api/rooms`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...newRoom, createdBy: profile?.username }),
@@ -45,15 +48,20 @@ const Sidebar = ({ mobileOpen, onClose }) => {
     joinRoom(room);
     setCreating(false);
     setNewRoom({ name: "", description: "", icon: "💬" });
+    notify(`Room #${room.name} created! ⚡`, "success");
+    playSound("levelup");
   };
 
-  const xpPercent = Math.min(((profile?.xp || 0) % 1000) / 10, 100);
+  const handleLogout = () => {
+    playSound("click");
+    logout();
+  };
 
   return (
     <aside className={`fixed md:relative inset-y-0 left-0 z-40 w-72 flex flex-col glass border-r border-cyber-border transition-transform duration-300
       ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
 
-      {/* ── Brand header ──────────────────────────────────── */}
+      {/* Brand header */}
       <div className="p-4 border-b border-cyber-border flex items-center justify-between">
         <div>
           <h1 className="font-cyber text-sm neon-text-cyan tracking-wider">𝖒𝖗᭄𝕯𝖆𝖐𝖗𝖔𝖒𝖆꧂</h1>
@@ -62,38 +70,35 @@ const Sidebar = ({ mobileOpen, onClose }) => {
         <button onClick={onClose} className="md:hidden text-cyber-muted hover:text-cyber-pink text-xl">✕</button>
       </div>
 
-      {/* ── User profile card ─────────────────────────────── */}
+      {/* User profile card - tap to edit */}
       <div className="p-3 border-b border-cyber-border">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => { playSound("click"); setShowProfile(true); }}>
           <div className="relative">
             <img
               src={profile?.avatar || `https://api.dicebear.com/7.x/cyberpunk/svg?seed=${profile?.username}`}
               alt="avatar"
-              className="w-10 h-10 rounded-full border border-cyber-cyan/40"
+              className="w-10 h-10 rounded-full border border-cyber-cyan/40 group-hover:border-cyber-cyan transition-all"
             />
             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-cyber-green border-2 border-cyber-panel" />
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-cyber-card border border-cyber-border flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">✏️</span>
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-cyber text-xs text-white truncate">{profile?.username || "PILOT"}</p>
-            <p className="text-xs text-cyber-muted font-mono">LVL {profile?.level || 1}</p>
+            <RankBadge xp={profile?.xp || 0} size="sm" />
           </div>
-          <button onClick={logout} title="Logout"
+          <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} title="Logout"
             className="text-cyber-muted hover:text-cyber-pink text-sm transition-colors">⏻</button>
         </div>
         {/* XP bar */}
         <div className="mt-2">
-          <div className="h-1 bg-cyber-border rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-cyan-400 to-purple-500 rounded-full transition-all"
-              style={{ width: `${xpPercent}%` }} />
-          </div>
-          <p className="text-xs text-cyber-muted font-mono mt-0.5">{profile?.xp || 0} XP</p>
+          <XPBar xp={profile?.xp || 0} />
         </div>
       </div>
 
-      {/* ── Tab switcher ──────────────────────────────────── */}
+      {/* Tab switcher */}
       <div className="flex border-b border-cyber-border">
         {["rooms","users"].map((t) => (
-          <button key={t} onClick={() => setTab(t)}
+          <button key={t} onClick={() => { playSound("click"); setTab(t); }}
             className={`flex-1 py-2 text-xs font-cyber tracking-widest uppercase transition-colors
               ${tab === t ? "text-cyber-cyan border-b border-cyber-cyan" : "text-cyber-muted hover:text-cyber-text"}`}>
             {t === "rooms" ? "# Rooms" : "👥 Online"}
@@ -101,7 +106,7 @@ const Sidebar = ({ mobileOpen, onClose }) => {
         ))}
       </div>
 
-      {/* ── Scrollable content ────────────────────────────── */}
+      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {tab === "rooms" ? (
           <>
@@ -127,8 +132,7 @@ const Sidebar = ({ mobileOpen, onClose }) => {
               </motion.button>
             ))}
 
-            {/* Create room button */}
-            <button onClick={() => setCreating(true)}
+            <button onClick={() => { playSound("click"); setCreating(true); }}
               className="w-full text-left px-3 py-2 text-xs text-cyber-muted hover:text-cyber-cyan font-mono flex items-center gap-2 transition-colors mt-2">
               <span className="text-lg">＋</span> Create Room
             </button>
@@ -138,21 +142,21 @@ const Sidebar = ({ mobileOpen, onClose }) => {
             ? <p className="text-xs text-cyber-muted text-center mt-8 font-mono">No pilots online</p>
             : onlineUsers.map((u, i) => (
               <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-cyber-card transition-colors">
-                <div className="relative flex-shrink-0 cursor-pointer" onClick={() => setEditProfile(true)}>
+                <div className="relative flex-shrink-0">
                   <img src={u.avatar || `https://api.dicebear.com/7.x/cyberpunk/svg?seed=${u.username}`}
                     alt="" className="w-8 h-8 rounded-full border border-cyber-border" />
                   <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-cyber-green border-2 border-cyber-panel" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm text-cyber-text truncate">{u.username}</p>
-                  <p className="text-xs text-cyber-muted font-mono truncate">#{u.room || "global"}</p>
+                  <RankBadge xp={u.xp || 0} size="sm" />
                 </div>
               </div>
             ))
         )}
       </div>
 
-      {/* ── Online count footer ───────────────────────────── */}
+      {/* Footer */}
       <div className="p-3 border-t border-cyber-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
@@ -164,7 +168,7 @@ const Sidebar = ({ mobileOpen, onClose }) => {
         </a>
       </div>
 
-      {/* ── Create room modal ─────────────────────────────── */}
+      {/* Create room modal */}
       <AnimatePresence>
         {creating && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -190,7 +194,11 @@ const Sidebar = ({ mobileOpen, onClose }) => {
           </motion.div>
         )}
       </AnimatePresence>
-    {editProfile && <ProfileEditor onClose={() => setEditProfile(false)} />}
+
+      {/* Profile Editor */}
+      <AnimatePresence>
+        {showProfile && <ProfileEditor onClose={() => setShowProfile(false)} />}
+      </AnimatePresence>
     </aside>
   );
 };

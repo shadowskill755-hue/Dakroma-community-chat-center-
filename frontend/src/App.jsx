@@ -1,5 +1,5 @@
 // ============================================================
-// App.jsx – routing + loading screen
+// App.jsx – routing + loading screen + notifications
 // ============================================================
 import { useState }                              from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -11,6 +11,7 @@ import LoginPage                                  from "./pages/LoginPage";
 import SignupPage                                  from "./pages/SignupPage";
 import ChatPage                                   from "./pages/ChatPage";
 import ParticlesBackground                        from "./components/ParticlesBackground";
+import NotificationSystem                         from "./components/NotificationSystem";
 
 export default function App() {
   const [booted, setBooted] = useState(false);
@@ -19,6 +20,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <ParticlesBackground />
+        <NotificationSystem />
 
         <AnimatePresence mode="wait">
           {!booted ? (

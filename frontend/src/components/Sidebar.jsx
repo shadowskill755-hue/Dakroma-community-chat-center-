@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth }    from "../context/AuthContext";
 import useChatStore   from "../context/chatStore";
+import ProfileEditor from "./ProfileEditor";
 import socket         from "../services/socket";
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
@@ -13,6 +14,7 @@ const Sidebar = ({ mobileOpen, onClose }) => {
   const { user, profile, logout } = useAuth();
   const { rooms, onlineUsers, activeRoom, setActiveRoom, addRoom } = useChatStore();
   const [tab,         setTab]         = useState("rooms");   // rooms | users
+  const [editProfile, setEditProfile] = useState(false);
   const [creating,    setCreating]    = useState(false);
   const [newRoom,     setNewRoom]     = useState({ name: "", description: "", icon: "💬" });
 
@@ -136,7 +138,7 @@ const Sidebar = ({ mobileOpen, onClose }) => {
             ? <p className="text-xs text-cyber-muted text-center mt-8 font-mono">No pilots online</p>
             : onlineUsers.map((u, i) => (
               <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-cyber-card transition-colors">
-                <div className="relative flex-shrink-0">
+                <div className="relative flex-shrink-0 cursor-pointer" onClick={() => setEditProfile(true)}>
                   <img src={u.avatar || `https://api.dicebear.com/7.x/cyberpunk/svg?seed=${u.username}`}
                     alt="" className="w-8 h-8 rounded-full border border-cyber-border" />
                   <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-cyber-green border-2 border-cyber-panel" />
@@ -188,6 +190,7 @@ const Sidebar = ({ mobileOpen, onClose }) => {
           </motion.div>
         )}
       </AnimatePresence>
+    {editProfile && <ProfileEditor onClose={() => setEditProfile(false)} />}
     </aside>
   );
 };

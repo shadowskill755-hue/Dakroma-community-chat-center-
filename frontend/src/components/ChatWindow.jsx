@@ -1,5 +1,5 @@
 // ============================================================
-// ChatWindow – messages + input + bot commands + group info
+// ChatWindow – replies, pictures, bot commands, group info
 // ============================================================
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,24 +16,25 @@ import { getRank } from "./RankSystem";
 const ChatWindow = ({ onMenuOpen }) => {
   const { user, profile, saveProfile } = useAuth();
   const { messages, typingUsers, activeRoom, rooms, onlineUsers, systemMsgs } = useChatStore();
-  const [text, setText]       = useState("");
-  const [typing, setTyping]   = useState(false);
-  const [showInfo, setShowInfo]= useState(false);
-  const [botMsgs, setBotMsgs] = useState({});
-  const endRef   = useRef(null);
+  const [text, setText]         = useState("");
+  const [typing, setTyping]     = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const [botMsgs, setBotMsgs]   = useState({});
+  const [replyTo, setReplyTo]   = useState(null);
+  const [showImgBtn, setShowImgBtn] = useState(false);
+  const endRef      = useRef(null);
   const typingTimer = useRef(null);
+  const fileRef     = useRef(null);
 
   const roomMessages = messages[activeRoom] || [];
   const roomTyping   = typingUsers[activeRoom] || [];
   const currentRoom  = rooms.find((r) => r.id === activeRoom);
   const onlineHere   = onlineUsers.filter((u) => u.room === activeRoom);
-  const recentSystem = systemMsgs.slice(-3);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [roomMessages.length, roomTyping.length]);
 
-  // Award XP on message send
   const awardXP = useCallback(() => {
     const currentXP = profile?.xp || 0;
     const newXP = currentXP + 10;
@@ -71,7 +72,6 @@ const ChatWindow = ({ onMenuOpen }) => {
     if (!text.trim()) return;
     const trimmed = text.trim();
 
-    // Check for bot command
     if (trimmed.startsWith("dk.")) {
       const isAdmin = currentRoom?.createdBy === user?.uid ||
         currentRoom?.admins?.includes(user?.uid);
@@ -82,28 +82,50 @@ const ChatWindow = ({ onMenuOpen }) => {
         roomId: activeRoom,
         isAdmin,
         addBotMessage,
-        onAnnounce: (msg) => {
-          socket.emit("message:send", { text: msg, room: activeRoom });
-        },
+        onAnnounce: (msg) => socket.emit("message:send", { text: msg, room: activeRoom }),
       });
       setText("");
       return;
     }
 
-    socket.emit("message:send", { text: trimmed, room: activeRoom });
+    socket.emit("message:send", {
+      text: trimmed,
+      room: activeRoom,
+      replyTo: replyTo ? { id: replyTo.id, text: replyTo.text, username: replyTo.username } : null,
+      memberId: profile?.memberId,
+      xp: profile?.xp || 0,
+    });
     awardXP();
     setText("");
+    setReplyTo(null);
     playSound("message");
     clearTimeout(typingTimer.current);
     setTyping(false);
     socket.emit("typing:stop", { room: activeRoom });
-  }, [text, activeRoom, profile, user, currentRoom, onlineHere, awardXP]);
+  }, [text, activeRoom, profile, user, currentRoom, onlineHere, awardXP, replyTo]);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      socket.emit("message:send", {
+        text: "📷 Shared an image",
+        imageUrl: ev.target.result,
+        room: activeRoom,
+        memberId: profile?.memberId,
+        xp: profile?.xp || 0,
+      });
+      playSound("message");
+      awardXP();
+    };
+    reader.readAsDataURL(file);
+  };
 
   const onKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  // Merge real messages with bot messages
   const allMessages = [
     ...(roomMessages || []),
     ...(botMsgs[activeRoom] || []).map((m) => ({ ...m, isBot: true })),
@@ -119,11 +141,8 @@ const ChatWindow = ({ onMenuOpen }) => {
           <h2 className="font-cyber text-sm text-white">#{currentRoom?.name || "global"}</h2>
           <p className="text-xs text-cyber-muted font-mono">{onlineHere.length} pilot{onlineHere.length !== 1 ? "s" : ""} in room</p>
         </div>
-
-        {/* Group info button */}
         <button onClick={() => { playSound("click"); setShowInfo(true); }}
           className="text-cyber-muted hover:text-cyber-cyan transition-colors text-xl">ℹ️</button>
-
         <div className="flex items-center gap-2 glass rounded-full px-3 py-1 neon-border-cyan">
           <span className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
           <span className="text-xs font-mono text-cyber-cyan">{onlineUsers.length} ONLINE</span>
@@ -132,13 +151,12 @@ const ChatWindow = ({ onMenuOpen }) => {
 
       {/* System messages */}
       <AnimatePresence>
-        {recentSystem.length > 0 && (
+        {systemMsgs.length > 0 && (
           <div className="absolute top-16 left-0 right-0 z-10 flex flex-col items-center gap-1 pointer-events-none">
-            {recentSystem.map((s) => (
+            {systemMsgs.map((s) => (
               <motion.div key={s.id}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity:0, y:-10 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
+                transition={{ duration:0.6 }}
                 className="glass rounded-full px-4 py-1 text-xs font-mono text-cyber-yellow border border-yellow-500/20">
                 {s.text}
               </motion.div>
@@ -161,7 +179,12 @@ const ChatWindow = ({ onMenuOpen }) => {
             msg.isBot ? (
               <BotMessage key={msg.id} text={msg.text} />
             ) : (
-              <MessageBubble key={msg.id} msg={msg} isOwn={msg.uid === user?.uid} />
+              <MessageBubble
+                key={msg.id}
+                msg={msg}
+                isOwn={msg.uid === user?.uid}
+                onReply={setReplyTo}
+              />
             )
           )
         )}
@@ -169,15 +192,15 @@ const ChatWindow = ({ onMenuOpen }) => {
         {/* Typing indicators */}
         <AnimatePresence>
           {roomTyping.filter((u) => u.uid !== user?.uid).map((u) => (
-            <motion.div key={u.uid} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            <motion.div key={u.uid} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
               className="flex items-center gap-2">
               <img src={`https://api.dicebear.com/7.x/cyberpunk/svg?seed=${u.username}`}
                 className="w-6 h-6 rounded-full border border-cyber-border" alt="" />
               <div className="glass rounded-xl px-3 py-2 flex items-center gap-1 neon-border-cyan">
                 {[0,1,2].map((i) => (
                   <motion.span key={i} className="w-1.5 h-1.5 rounded-full bg-cyber-cyan"
-                    animate={{ opacity: [0.3,1,0.3], y: [0,-3,0] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2 }} />
+                    animate={{ opacity:[0.3,1,0.3], y:[0,-3,0] }}
+                    transition={{ duration:0.8, repeat:Infinity, delay:i*0.2 }} />
                 ))}
                 <span className="text-xs text-cyber-muted ml-1 font-mono">{u.username}</span>
               </div>
@@ -187,9 +210,30 @@ const ChatWindow = ({ onMenuOpen }) => {
         <div ref={endRef} />
       </div>
 
+      {/* Reply preview */}
+      <AnimatePresence>
+        {replyTo && (
+          <motion.div initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
+            className="mx-3 mb-1 px-3 py-2 glass rounded-xl border-l-2 border-cyber-cyan/50 flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-cyber text-cyber-cyan">{replyTo.username}</p>
+              <p className="text-xs text-cyber-muted truncate">{replyTo.text}</p>
+            </div>
+            <button onClick={() => setReplyTo(null)} className="text-cyber-muted hover:text-cyber-pink ml-2">✕</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Input */}
       <div className="glass border-t border-cyber-border p-3 flex-shrink-0">
         <div className="flex gap-2 items-end">
+          {/* Image upload button */}
+          <button onClick={() => fileRef.current.click()}
+            className="text-cyber-muted hover:text-cyber-cyan transition-colors text-xl flex-shrink-0 mb-2">
+            🖼️
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+
           <div className="flex-1 relative">
             <textarea
               className="cyber-input w-full rounded-xl px-4 py-3 text-sm resize-none leading-relaxed"
@@ -198,13 +242,14 @@ const ChatWindow = ({ onMenuOpen }) => {
               value={text}
               onChange={handleInput}
               onKeyDown={onKey}
-              style={{ maxHeight: "120px", overflowY: "auto" }}
+              style={{ maxHeight:"120px", overflowY:"auto" }}
             />
           </div>
-          <motion.button onClick={send} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+
+          <motion.button onClick={send} whileHover={{ scale:1.05 }} whileTap={{ scale:0.95 }}
             disabled={!text.trim()}
-            className="btn-cyber rounded-xl px-4 py-3 text-lg flex items-center justify-center disabled:opacity-30"
-            style={{ minWidth: "52px", height: "52px" }}>
+            className="btn-cyber rounded-xl px-4 py-3 text-lg disabled:opacity-30 flex-shrink-0"
+            style={{ minWidth:"52px", height:"52px" }}>
             ⚡
           </motion.button>
         </div>
@@ -214,7 +259,7 @@ const ChatWindow = ({ onMenuOpen }) => {
           <a href="https://vm.tiktok.com/ZS9Y5So3xkPwN-vpVYK/" target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 glass rounded-full px-4 py-1.5 neon-border-pink hover:border-cyber-pink transition-all group">
             <span className="text-sm">🎵</span>
-            <span className="text-xs font-cyber text-cyber-pink group-hover:neon-text-pink tracking-wider">WATCH ON TIKTOK</span>
+            <span className="text-xs font-cyber text-cyber-pink tracking-wider">WATCH ON TIKTOK</span>
             <span className="text-xs text-cyber-muted">↗</span>
           </a>
         </div>

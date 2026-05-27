@@ -19,7 +19,7 @@ const getSaved = () => {
   catch { return []; }
 };
 
-const Sidebar = ({ mobileOpen, onClose, onGoHome, onRoomSelect, onOpenSettings }) => {
+const Sidebar = ({ mobileOpen, onClose, onGoHome, onRoomSelect, onOpenSettings, page = "home" }) => {
   const { user, profile } = useAuth();
   const { rooms, onlineUsers, activeRoom, setActiveRoom, addRoom } = useChatStore();
   const [tab,         setTab]         = useState("rooms");

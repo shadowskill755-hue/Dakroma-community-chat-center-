@@ -24,6 +24,7 @@ const ChatPage = () => {
         onGoHome={() => { setPage("home"); setMobileOpen(false); }}
         onRoomSelect={() => { setPage("chat"); setMobileOpen(false); }}
         onOpenSettings={() => { playSound("click"); setShowSettings(true); }}
+        page={page}
       />
 
       <div className="flex-1 flex flex-col min-w-0">

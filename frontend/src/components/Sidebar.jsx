@@ -165,7 +165,13 @@ const Sidebar = ({ mobileOpen, onClose, onRoomSelect, onOpenSettings }) => {
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {tab === "rooms" ? (
             <>
-              {allRooms.map((room) => (
+              <motion.button onClick={() => { playSound("click"); onRoomSelect?.(); onClose?.(); }}
+                  whileHover={{ x:4 }} whileTap={{ scale:0.98 }}
+                  className="w-full text-left px-3 py-2.5 rounded-lg transition-all flex items-center gap-3 hover:bg-cyber-card border border-transparent text-cyber-muted hover:text-cyber-text mb-1">
+                  <span className="text-lg">🏠</span>
+                  <p className="text-sm font-semibold">Home Base</p>
+                </motion.button>
+                {allRooms.map((room) => (
                 <motion.button key={room.id} onClick={() => joinRoom(room)}
                   whileHover={{ x:4 }} whileTap={{ scale:0.98 }}
                   className={`w-full text-left px-3 py-2.5 rounded-lg transition-all flex items-center gap-3

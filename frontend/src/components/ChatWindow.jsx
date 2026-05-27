@@ -16,6 +16,7 @@ import { getRank } from "./RankSystem";
 const ChatWindow = ({ onMenuOpen }) => {
   const { user, profile, saveProfile } = useAuth();
   const { messages, typingUsers, activeRoom, rooms, onlineUsers, systemMsgs } = useChatStore();
+  const allRooms = [...rooms, ...JSON.parse(localStorage.getItem("dakroma_joined_rooms") || "[]")];
   const [text, setText]         = useState("");
   const [typing, setTyping]     = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -28,7 +29,7 @@ const ChatWindow = ({ onMenuOpen }) => {
 
   const roomMessages = messages[activeRoom] || [];
   const roomTyping   = typingUsers[activeRoom] || [];
-  const currentRoom  = rooms.find((r) => r.id === activeRoom);
+  const currentRoom = allRooms.find((r) => r.id === activeRoom);
   const onlineHere   = onlineUsers.filter((u) => u.room === activeRoom);
 
   useEffect(() => {

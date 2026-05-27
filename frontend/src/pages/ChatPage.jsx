@@ -1,42 +1,76 @@
 // ============================================================
-// ChatPage – main app shell
+// ChatPage – home page + chat + settings
 // ============================================================
 import { useState } from "react";
-import { motion }   from "framer-motion";
-import Sidebar      from "../components/Sidebar";
-import ChatWindow   from "../components/ChatWindow";
-import AIOrb        from "../components/AIOrb";
-import useSocket    from "../hooks/useSocket";
+import { AnimatePresence, motion } from "framer-motion";
+import { useAuth } from "../context/AuthContext";
+import Sidebar from "../components/Sidebar";
+import ChatWindow from "../components/ChatWindow";
+import HomePage from "./HomePage";
+import SettingsPage from "./SettingsPage";
+import useChatStore from "../context/chatStore";
+import useSocket from "../hooks/useSocket";
+import { playSound } from "../components/SoundManager";
 
 const ChatPage = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  useSocket(); // Connect socket & bind events
+  const { logout } = useAuth();
+  const { activeRoom } = useChatStore();
+  const [mobileOpen,   setMobileOpen]   = useState(false);
+  const [showHome,     setShowHome]     = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  useSocket();
+
+  const handleRoomSelect = () => {
+    setShowHome(false);
+    setMobileOpen(false);
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="h-screen flex overflow-hidden relative scan-overlay"
-      style={{ background: "radial-gradient(ellipse at 20% 50%, #0a1628 0%, #020408 60%)" }}
-    >
+    <div className="flex h-screen overflow-hidden bg-cyber-bg relative">
       {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-30 md:hidden"
-          onClick={() => setSidebarOpen(false)} />
-      )}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+            className="fixed inset-0 bg-black/50 z-30 md:hidden"
+            onClick={() => setMobileOpen(false)} />
+        )}
+      </AnimatePresence>
 
       {/* Sidebar */}
       <Sidebar
-        mobileOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        mobileOpen={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        onRoomSelect={handleRoomSelect}
+        onOpenSettings={() => { playSound("click"); setShowSettings(true); }}
       />
 
       {/* Main content */}
-      <ChatWindow onMenuOpen={() => setSidebarOpen(true)} />
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        <AnimatePresence mode="wait">
+          {showHome ? (
+            <motion.div key="home" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+              className="flex-1 flex flex-col min-h-0">
+              <HomePage onOpenSidebar={() => setMobileOpen(true)} />
+            </motion.div>
+          ) : (
+            <motion.div key="chat" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+              className="flex-1 flex flex-col min-h-0">
+              <ChatWindow onMenuOpen={() => setMobileOpen(true)} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-      {/* Floating AI Orb */}
-      <AIOrb />
-    </motion.div>
+      {/* Settings */}
+      <AnimatePresence>
+        {showSettings && (
+          <SettingsPage
+            onClose={() => setShowSettings(false)}
+            onLogout={() => { logout(); setShowSettings(false); }}
+          />
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

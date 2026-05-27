@@ -1,5 +1,5 @@
 // ============================================================
-// Sidebar – rooms + search + mailbox + welcome animation
+// Sidebar – rooms + search + mailbox + settings + welcome
 // ============================================================
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,22 +11,29 @@ import { RankBadge, XPBar } from "./RankSystem";
 import { notify } from "./NotificationSystem";
 import { playSound } from "./SoundManager";
 import GroupSearch from "./GroupSearch";
-import Mailbox, { getUnreadCount, addToMailbox } from "./Mailbox";
+import Mailbox, { getUnreadCount } from "./Mailbox";
 import WelcomeAnimation from "./WelcomeAnimation";
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+const JOINED_ROOMS_KEY = "dakroma_joined_rooms";
 
-const Sidebar = ({ mobileOpen, onClose }) => {
-  const { user, profile, logout } = useAuth();
+const getSavedRooms = () => {
+  try { return JSON.parse(localStorage.getItem(JOINED_ROOMS_KEY) || "[]"); }
+  catch { return []; }
+};
+
+const Sidebar = ({ mobileOpen, onClose, onRoomSelect, onOpenSettings }) => {
+  const { user, profile } = useAuth();
   const { rooms, onlineUsers, activeRoom, setActiveRoom, addRoom } = useChatStore();
   const [tab,          setTab]          = useState("rooms");
   const [creating,     setCreating]     = useState(false);
-  const [newRoom,      setNewRoom]      = useState({ name: "", description: "", icon: "💬" });
+  const [newRoom,      setNewRoom]      = useState({ name:"", description:"", icon:"💬" });
   const [showProfile,  setShowProfile]  = useState(false);
   const [showSearch,   setShowSearch]   = useState(false);
   const [showMailbox,  setShowMailbox]  = useState(false);
   const [welcomeRoom,  setWelcomeRoom]  = useState(null);
   const [unreadMail,   setUnreadMail]   = useState(0);
+  const [joinedRooms,  setJoinedRooms]  = useState(getSavedRooms());
 
   useEffect(() => {
     fetch(`${BACKEND}/api/rooms`)
@@ -36,8 +43,20 @@ const Sidebar = ({ mobileOpen, onClose }) => {
     setUnreadMail(getUnreadCount());
   }, []);
 
+  // Merge default rooms with joined rooms
+  const allRooms = [
+    ...rooms,
+    ...joinedRooms.filter((jr) => !rooms.find((r) => r.id === jr.id)),
+  ];
+
   const joinRoom = (room) => {
-    // Show welcome animation
+    // Save to joined rooms
+    const saved = getSavedRooms();
+    if (!saved.find((r) => r.id === room.id)) {
+      const updated = [...saved, room];
+      localStorage.setItem(JOINED_ROOMS_KEY, JSON.stringify(updated));
+      setJoinedRooms(updated);
+    }
     setWelcomeRoom(room);
     playSound("join");
     onClose?.();
@@ -47,6 +66,7 @@ const Sidebar = ({ mobileOpen, onClose }) => {
     socket.emit("room:join", { roomId: room.id, roomName: room.name });
     setActiveRoom(room.id);
     setWelcomeRoom(null);
+    onRoomSelect?.();
   };
 
   const createRoom = async () => {
@@ -65,7 +85,7 @@ const Sidebar = ({ mobileOpen, onClose }) => {
     socket.emit("room:created", room);
     joinRoom(room);
     setCreating(false);
-    setNewRoom({ name: "", description: "", icon: "💬" });
+    setNewRoom({ name:"", description:"", icon:"💬" });
     notify(`Room #${room.name} created! ⚡`, "success");
     playSound("levelup");
   };
@@ -82,17 +102,22 @@ const Sidebar = ({ mobileOpen, onClose }) => {
             <p className="text-xs text-cyber-muted font-mono mt-0.5">COMMUNITY GRID</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Mailbox button */}
+            {/* Settings */}
+            <button onClick={() => { playSound("click"); onOpenSettings?.(); }}
+              className="text-cyber-muted hover:text-cyber-cyan transition-colors text-lg" title="Settings">
+              ⚙️
+            </button>
+            {/* Mailbox */}
             <button onClick={() => { playSound("click"); setShowMailbox(true); setUnreadMail(0); }}
-              className="relative text-cyber-muted hover:text-cyber-cyan transition-colors text-lg">
+              className="relative text-cyber-muted hover:text-cyber-cyan transition-colors text-lg" title="Mailbox">
               📬
               {unreadMail > 0 && (
                 <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-cyber-pink animate-pulse" />
               )}
             </button>
-            {/* Search button */}
+            {/* Search */}
             <button onClick={() => { playSound("click"); setShowSearch(true); }}
-              className="text-cyber-muted hover:text-cyber-cyan transition-colors text-lg">
+              className="text-cyber-muted hover:text-cyber-cyan transition-colors text-lg" title="Search">
               🔍
             </button>
             <button onClick={onClose} className="md:hidden text-cyber-muted hover:text-cyber-pink text-xl">✕</button>
@@ -113,13 +138,9 @@ const Sidebar = ({ mobileOpen, onClose }) => {
                 ${profile?.status === "busy" ? "bg-red-500" : profile?.status === "away" ? "bg-yellow-500" : "bg-cyber-green"}`} />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1">
-                <p className="font-cyber text-xs text-white truncate">{profile?.username || "PILOT"}</p>
-              </div>
+              <p className="font-cyber text-xs text-white truncate">{profile?.username || "PILOT"}</p>
               <p className="text-xs text-cyber-muted font-mono">{profile?.memberId || "DK-00000"}</p>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); playSound("click"); logout(); }}
-              title="Logout" className="text-cyber-muted hover:text-cyber-pink text-sm transition-colors">⏻</button>
           </div>
           <div className="mt-2">
             <RankBadge xp={profile?.xp || 0} size="sm" />
@@ -144,10 +165,10 @@ const Sidebar = ({ mobileOpen, onClose }) => {
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {tab === "rooms" ? (
             <>
-              {rooms.map((room) => (
+              {allRooms.map((room) => (
                 <motion.button key={room.id} onClick={() => joinRoom(room)}
-                  whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg transition-all flex items-center gap-3 group
+                  whileHover={{ x:4 }} whileTap={{ scale:0.98 }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg transition-all flex items-center gap-3
                     ${activeRoom === room.id
                       ? "bg-cyan-500/15 border border-cyan-500/30 text-white"
                       : "hover:bg-cyber-card border border-transparent text-cyber-muted hover:text-cyber-text"}`}>
@@ -214,14 +235,14 @@ const Sidebar = ({ mobileOpen, onClose }) => {
                 <h3 className="font-cyber text-sm neon-text-cyan">CREATE ROOM</h3>
                 <div className="flex gap-2">
                   <input className="cyber-input w-16 rounded-lg px-2 py-2 text-center text-xl"
-                    value={newRoom.icon} onChange={(e) => setNewRoom((r) => ({ ...r, icon: e.target.value }))} maxLength={2} />
+                    value={newRoom.icon} onChange={(e) => setNewRoom((r) => ({ ...r, icon:e.target.value }))} maxLength={2} />
                   <input className="cyber-input flex-1 rounded-lg px-3 py-2 text-sm"
                     placeholder="Room name..." value={newRoom.name}
-                    onChange={(e) => setNewRoom((r) => ({ ...r, name: e.target.value }))} />
+                    onChange={(e) => setNewRoom((r) => ({ ...r, name:e.target.value }))} />
                 </div>
                 <input className="cyber-input w-full rounded-lg px-3 py-2 text-sm"
                   placeholder="Description (optional)" value={newRoom.description}
-                  onChange={(e) => setNewRoom((r) => ({ ...r, description: e.target.value }))} />
+                  onChange={(e) => setNewRoom((r) => ({ ...r, description:e.target.value }))} />
                 <div className="flex gap-2">
                   <button onClick={() => setCreating(false)} className="flex-1 btn-cyber btn-cyber-pink rounded-lg py-2 text-xs">CANCEL</button>
                   <button onClick={createRoom} className="flex-1 btn-cyber rounded-lg py-2 text-xs">CREATE ⚡</button>
@@ -240,28 +261,19 @@ const Sidebar = ({ mobileOpen, onClose }) => {
       {/* Group Search */}
       <AnimatePresence>
         {showSearch && (
-          <GroupSearch
-            rooms={rooms}
-            onJoin={joinRoom}
-            onClose={() => setShowSearch(false)}
-          />
+          <GroupSearch rooms={allRooms} onJoin={joinRoom} onClose={() => setShowSearch(false)} />
         )}
       </AnimatePresence>
 
       {/* Mailbox */}
       <AnimatePresence>
-        {showMailbox && (
-          <Mailbox onClose={() => setShowMailbox(false)} />
-        )}
+        {showMailbox && <Mailbox onClose={() => setShowMailbox(false)} />}
       </AnimatePresence>
 
       {/* Welcome Animation */}
       <AnimatePresence>
         {welcomeRoom && (
-          <WelcomeAnimation
-            room={welcomeRoom}
-            onDone={() => afterWelcome(welcomeRoom)}
-          />
+          <WelcomeAnimation room={welcomeRoom} onDone={() => afterWelcome(welcomeRoom)} />
         )}
       </AnimatePresence>
     </>

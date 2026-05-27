@@ -67,7 +67,7 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
             className={`px-3 py-2 rounded-xl text-sm leading-relaxed cursor-pointer select-none
               ${isOwn
                 ? "bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 border border-cyan-500/30 text-white rounded-tr-none"
-                : "bg-cyber-card border border-cyber-border text-cyber-text rounded-tl-none"}`}>
+                : "bg-gray-800 border border-cyan-500/30 text-white rounded-tl-none"}`}>
             {/* Image */}
             {msg.imageUrl ? (
               <img src={msg.imageUrl} alt="shared"

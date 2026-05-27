@@ -1,6 +1,3 @@
-// ============================================================
-// ChatPage – home page + chat + settings
-// ============================================================
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
@@ -20,14 +17,8 @@ const ChatPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   useSocket();
 
-  const handleRoomSelect = () => {
-    setShowHome(false);
-    setMobileOpen(false);
-  };
-
   return (
     <div className="flex h-screen overflow-hidden bg-cyber-bg relative">
-      {/* Mobile overlay */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
@@ -36,32 +27,22 @@ const ChatPage = () => {
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
       <Sidebar
         mobileOpen={mobileOpen}
         onClose={() => setMobileOpen(false)}
-        onRoomSelect={() => setShowHome(false)}
+        onGoHome={() => { setShowHome(true); setMobileOpen(false); }}
+        onRoomSelect={() => { setShowHome(false); setMobileOpen(false); }}
         onOpenSettings={() => { playSound("click"); setShowSettings(true); }}
       />
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <AnimatePresence mode="wait">
-          {showHome ? (
-            <motion.div key="home" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-              className="flex-1 flex flex-col min-h-0">
-              <HomePage onOpenSidebar={() => setMobileOpen(true)} />
-            </motion.div>
-          ) : (
-            <motion.div key="chat" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-              className="flex-1 flex flex-col min-h-0">
-              <ChatWindow onMenuOpen={() => setMobileOpen(true)} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {showHome ? (
+          <HomePage onOpenSidebar={() => setMobileOpen(true)} />
+        ) : (
+          <ChatWindow onMenuOpen={() => setMobileOpen(true)} />
+        )}
       </div>
 
-      {/* Settings */}
       <AnimatePresence>
         {showSettings && (
           <SettingsPage

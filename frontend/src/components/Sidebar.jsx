@@ -279,7 +279,7 @@ const Sidebar = ({ mobileOpen, onClose, onRoomSelect, onOpenSettings }) => {
       {/* Welcome Animation */}
       <AnimatePresence>
         {welcomeRoom && (
-          <WelcomeAnimation room={welcomeRoom} onDone={() => afterWelcome(welcomeRoom)} />
+          <WelcomeAnimation room={welcomeRoom} onDone={() => { socket.emit("room:join", { roomId: welcomeRoom.id, roomName: welcomeRoom.name }); useChatStore.getState().setActiveRoom(welcomeRoom.id); setWelcomeRoom(null); onRoomSelect?.(); }} />
         )}
       </AnimatePresence>
     </>

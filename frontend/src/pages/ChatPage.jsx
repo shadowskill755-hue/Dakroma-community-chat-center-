@@ -40,7 +40,7 @@ const ChatPage = () => {
       <Sidebar
         mobileOpen={mobileOpen}
         onClose={() => setMobileOpen(false)}
-        onRoomSelect={() => setShowHome(true)}
+        onRoomSelect={() => setShowHome(false)}
         onOpenSettings={() => { playSound("click"); setShowSettings(true); }}
       />
 

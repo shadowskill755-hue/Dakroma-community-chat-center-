@@ -1,132 +1,108 @@
 // ============================================================
-// Socket.IO – Real-time chat, presence, typing indicators
+// chatSocket - handles all socket events
 // ============================================================
-const onlineUsers = new Map(); // socketId → { uid, username, avatar, room }
+const onlineUsers = new Map();
 
 module.exports = (io) => {
   io.on("connection", (socket) => {
-    console.log(`[SOCKET] Connected: ${socket.id}`);
+    console.log("Socket connected:", socket.id);
 
-    // ── User joins app ──────────────────────────────────────
-    socket.on("user:join", ({ uid, username, avatar }) => {
-      onlineUsers.set(socket.id, { uid, username, avatar, room: "global" });
-      socket.join("global");
-
-      // Broadcast updated online list
+    // User joins
+    socket.on("user:join", (userData) => {
+      socket.userData = userData;
+      onlineUsers.set(socket.id, { ...userData, socketId: socket.id });
       io.emit("users:online", Array.from(onlineUsers.values()));
       io.emit("system:message", {
-        text: `⚡ ${username} entered the grid`,
-        timestamp: Date.now(),
+        id: Date.now(),
+        text: `⚡ ${userData.username} entered the grid`,
       });
-
-      console.log(`[JOIN] ${username} (${uid})`);
     });
 
-    // ── Join a room ─────────────────────────────────────────
+    // Join room
     socket.on("room:join", ({ roomId, roomName }) => {
-      const user = onlineUsers.get(socket.id);
-      if (!user) return;
-
-      // Leave previous room
-      if (user.room && user.room !== "global") socket.leave(user.room);
       socket.join(roomId);
-      user.room = roomId;
-      onlineUsers.set(socket.id, user);
-
+      socket.currentRoom = roomId;
+      // Update user room
+      if (onlineUsers.has(socket.id)) {
+        const u = onlineUsers.get(socket.id);
+        onlineUsers.set(socket.id, { ...u, room: roomId });
+        io.emit("users:online", Array.from(onlineUsers.values()));
+      }
       io.to(roomId).emit("system:message", {
-        text: `⚡ ${user.username} joined #${roomName}`,
-        timestamp: Date.now(),
-        room: roomId,
+        id: Date.now(),
+        text: `⚡ ${socket.userData?.username} joined #${roomName}`,
       });
-
-      io.emit("users:online", Array.from(onlineUsers.values()));
     });
 
-    // ── Leave room → back to global ─────────────────────────
-    socket.on("room:leave", ({ roomId }) => {
-      const user = onlineUsers.get(socket.id);
-      if (!user) return;
-
-      socket.leave(roomId);
-      socket.join("global");
-      user.room = "global";
-      onlineUsers.set(socket.id, user);
-
-      io.emit("users:online", Array.from(onlineUsers.values()));
-    });
-
-    // ── Send message ────────────────────────────────────────
-    socket.on("message:send", (msg) => {
-      const user = onlineUsers.get(socket.id);
-      if (!user) return;
-
-      const fullMsg = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        uid: user.uid,
-        username: user.username,
-        avatar: user.avatar,
-        text: msg.text,
-        room: msg.room || "global",
+    // Send message
+    socket.on("message:send", (data) => {
+      const msg = {
+        id:        Date.now() + Math.random(),
+        uid:       socket.userData?.uid,
+        username:  socket.userData?.username,
+        avatar:    socket.userData?.avatar,
+        memberId:  socket.userData?.memberId || data.memberId,
+        xp:        socket.userData?.xp || data.xp || 0,
+        text:      data.text,
+        imageUrl:  data.imageUrl || null,
+        replyTo:   data.replyTo || null,
+        room:      data.room || socket.currentRoom || "global",
         timestamp: Date.now(),
         reactions: {},
       };
-
-      // Broadcast to room (or global)
-      io.to(fullMsg.room).emit("message:receive", fullMsg);
+      // Send to room or everyone
+      if (msg.room) {
+        io.to(msg.room).emit("message:receive", msg);
+      } else {
+        io.emit("message:receive", msg);
+      }
     });
 
-    // ── Typing indicator ────────────────────────────────────
+    // Typing
     socket.on("typing:start", ({ room }) => {
-      const user = onlineUsers.get(socket.id);
-      if (!user) return;
-      socket.to(room || "global").emit("typing:update", {
-        uid: user.uid,
-        username: user.username,
-        typing: true,
+      socket.to(room).emit("typing:update", {
+        uid:      socket.userData?.uid,
+        username: socket.userData?.username,
         room,
+        typing:   true,
       });
     });
 
     socket.on("typing:stop", ({ room }) => {
-      const user = onlineUsers.get(socket.id);
-      if (!user) return;
-      socket.to(room || "global").emit("typing:update", {
-        uid: user.uid,
-        username: user.username,
-        typing: false,
+      socket.to(room).emit("typing:update", {
+        uid:      socket.userData?.uid,
+        username: socket.userData?.username,
+        room,
+        typing:   false,
+      });
+    });
+
+    // Reactions
+    socket.on("message:react", ({ messageId, emoji, room }) => {
+      io.to(room).emit("message:reaction", {
+        messageId,
+        emoji,
+        uid:  socket.userData?.uid,
         room,
       });
     });
 
-    // ── Message reaction ────────────────────────────────────
-    socket.on("message:react", ({ messageId, emoji, room }) => {
-      const user = onlineUsers.get(socket.id);
-      if (!user) return;
-      io.to(room || "global").emit("message:reaction", {
-        messageId,
-        emoji,
-        uid: user.uid,
-        username: user.username,
-      });
-    });
-
-    // ── Room created ────────────────────────────────────────
+    // Room created
     socket.on("room:created", (room) => {
-      io.emit("room:new", room);
+      io.emit("room:created", room);
     });
 
-    // ── Disconnect ──────────────────────────────────────────
+    // Disconnect
     socket.on("disconnect", () => {
       const user = onlineUsers.get(socket.id);
       if (user) {
         io.emit("system:message", {
-          text: `💀 ${user.username} left the grid`,
-          timestamp: Date.now(),
+          id: Date.now(),
+          text: `⚡ ${user.username} left the grid`,
         });
-        onlineUsers.delete(socket.id);
-        io.emit("users:online", Array.from(onlineUsers.values()));
-        console.log(`[LEAVE] ${user.username}`);
       }
+      onlineUsers.delete(socket.id);
+      io.emit("users:online", Array.from(onlineUsers.values()));
     });
   });
 };

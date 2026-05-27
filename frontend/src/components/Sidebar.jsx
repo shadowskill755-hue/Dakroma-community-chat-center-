@@ -166,18 +166,18 @@ const Sidebar = ({ mobileOpen, onClose, onGoHome, onRoomSelect, onOpenSettings }
                   onClick={() => handleRoomTap(room)}
                   whileHover={{ x:4 }} whileTap={{ scale:0.98 }}
                   className={`w-full text-left px-3 py-2.5 rounded-lg transition-all flex items-center gap-3
-                    ${activeRoom === room.id
+                    ${activeRoom === room.id && page !== "home"
                       ? "bg-cyan-500/15 border border-cyan-500/30 text-white"
                       : "hover:bg-cyber-card border border-transparent text-cyber-muted hover:text-cyber-text"}`}>
                   <span className="text-lg">{room.icon}</span>
                   <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-semibold truncate ${activeRoom === room.id ? "neon-text-cyan" : ""}`}>
+                    <p className={`text-sm font-semibold truncate ${activeRoom === room.id && page !== "home" ? "neon-text-cyan" : ""}`}>
                       #{room.name}
                     </p>
                     {room.description && <p className="text-xs text-cyber-muted truncate">{room.description}</p>}
                   </div>
                   {room.approveMembers && <span className="text-xs">🔒</span>}
-                  {activeRoom === room.id && <span className="w-1.5 h-1.5 rounded-full bg-cyber-cyan flex-shrink-0" />}
+                  {activeRoom === room.id && page !== "home" && <span className="w-1.5 h-1.5 rounded-full bg-cyber-cyan flex-shrink-0" />}
                 </motion.button>
               ))}
 

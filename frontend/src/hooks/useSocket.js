@@ -1,6 +1,3 @@
-// ============================================================
-// useSocket - socket connection + all events
-// ============================================================
 import { useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import useChatStore from "../context/chatStore";
@@ -8,13 +5,7 @@ import socket from "../services/socket";
 
 const useSocket = () => {
   const { user, profile } = useAuth();
-  const {
-    addMessage,
-    setOnlineUsers,
-    setTyping,
-    addSystemMsg,
-    applyReaction,
-  } = useChatStore();
+  const { addMessage, setOnlineUsers, setTyping, applyReaction, activeRoom } = useChatStore();
 
   useEffect(() => {
     if (!user) return;
@@ -42,10 +33,6 @@ const useSocket = () => {
       setTyping(data);
     });
 
-    socket.on("system:message", (msg) => {
-      addSystemMsg(msg);
-    });
-
     socket.on("message:reaction", (data) => {
       applyReaction(data);
     });
@@ -58,7 +45,6 @@ const useSocket = () => {
       socket.off("message:receive");
       socket.off("users:online");
       socket.off("typing:update");
-      socket.off("system:message");
       socket.off("message:reaction");
       socket.off("room:created");
       socket.disconnect();

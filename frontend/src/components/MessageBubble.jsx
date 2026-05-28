@@ -38,13 +38,13 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
         className="w-8 h-8 rounded-full border border-cyber-border flex-shrink-0 self-end object-cover"
       />
 
-      <div className={`max-w-[75%] flex flex-col gap-1 ${isOwn ? "items-end" : "items-start"}`}>
+      <div className={`max-w-[70%] flex flex-col gap-1 ${isOwn ? "items-end" : "items-start"}`}>
 
         {/* Single bubble containing everything */}
         <div className="relative">
           <div
             onClick={() => { playSound("click"); setShowActions(!showActions); setShowReact(false); }}
-            className={`px-3 py-2 rounded-xl text-sm leading-relaxed cursor-pointer
+            className={`px-3 py-2 rounded-2xl text-sm cursor-pointer
               ${isOwn
                 ? "bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 border border-cyan-500/30 text-white rounded-tr-none"
                 : "bg-cyan-900/40 border border-cyan-500/20 text-white rounded-tl-none"}`}>

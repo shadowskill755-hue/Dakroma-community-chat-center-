@@ -7,15 +7,25 @@ import { RankBadge } from "./RankSystem";
 
 const REACTIONS = ["🔥","⚡","💀","🤖","👾","💯","😈","🙏"];
 
-const MessageBubble = ({ msg, isOwn, onReply, onDeleteForEveryone, onDeleteForMe }) => {
-  const { user } = useAuth();
+const MessageBubble = ({ msg, isOwn, onReply }) => {
+  const { user, profile } = useAuth();
   const [showActions, setShowActions] = useState(false);
   const [showReact, setShowReact] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [deletedForEveryone, setDeletedForEveryone] = useState(msg.deletedForEveryone || false);
+  const [localReactions, setLocalReactions] = useState(msg.reactions || {});
 
   const react = (emoji) => {
+    const uid = user?.uid;
+    const updated = { ...localReactions };
+    if (!updated[emoji]) updated[emoji] = [];
+    if (updated[emoji].includes(uid)) {
+      updated[emoji] = updated[emoji].filter(u => u !== uid);
+    } else {
+      updated[emoji] = [...updated[emoji], uid];
+    }
+    setLocalReactions(updated);
     socket.emit("message:react", { messageId: msg.id, emoji, room: msg.room });
     setShowReact(false);
     playSound("click");
@@ -30,12 +40,30 @@ const MessageBubble = ({ msg, isOwn, onReply, onDeleteForEveryone, onDeleteForMe
     socket.emit("message:delete", { messageId: msg.id, room: msg.room });
     setDeletedForEveryone(true);
     setShowDeleteMenu(false);
+    // Remove from localStorage
+    try {
+      const msgs = JSON.parse(localStorage.getItem("dakroma_messages") || "{}");
+      const room = msg.room || "global";
+      if (msgs[room]) {
+        msgs[room] = msgs[room].map(m => m.id === msg.id ? { ...m, deletedForEveryone: true, text: "This message was deleted" } : m);
+        localStorage.setItem("dakroma_messages", JSON.stringify(msgs));
+      }
+    } catch {}
     playSound("click");
   };
 
   const handleDeleteForMe = () => {
     setDeleted(true);
     setShowDeleteMenu(false);
+    // Remove from localStorage for this user only
+    try {
+      const msgs = JSON.parse(localStorage.getItem("dakroma_messages") || "{}");
+      const room = msg.room || "global";
+      if (msgs[room]) {
+        msgs[room] = msgs[room].filter(m => m.id !== msg.id);
+        localStorage.setItem("dakroma_messages", JSON.stringify(msgs));
+      }
+    } catch {}
     playSound("click");
   };
 
@@ -46,52 +74,62 @@ const MessageBubble = ({ msg, isOwn, onReply, onDeleteForEveryone, onDeleteForMe
       initial={{ opacity:0, y:8 }}
       animate={{ opacity:1, y:0 }}
       transition={{ duration:0.2 }}
-      className={`flex gap-2 ${isOwn ? "flex-row-reverse" : "flex-row"} items-end mb-1`}>
+      className={`flex gap-2 ${isOwn ? "flex-row-reverse" : "flex-row"} items-end mb-2`}>
 
+      {/* Avatar */}
       <img
         src={msg.avatar || `https://api.dicebear.com/7.x/cyberpunk/svg?seed=${msg.username}`}
         alt={msg.username}
-        className="w-7 h-7 rounded-full border border-cyber-border flex-shrink-0 object-cover"
+        className="w-8 h-8 rounded-full border border-cyber-border flex-shrink-0 object-cover mb-1"
       />
 
-      <div className={`max-w-[72%] flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
-        {/* Name + ID + Rank outside bubble */}
-        <div className={`flex items-center gap-1 mb-0.5 px-1 flex-wrap ${isOwn ? "flex-row-reverse" : ""}`}>
-          <span className="text-xs font-cyber text-cyan-400">{msg.username}</span>
-          <span className="text-xs text-cyber-muted/50 font-mono">{msg.memberId}</span>
+      <div className={`max-w-[75%] flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
+
+        {/* Rank badge on top */}
+        <div className={`flex items-center gap-1 mb-0.5 ${isOwn ? "flex-row-reverse" : ""}`}>
           <RankBadge xp={msg.xp || 0} size="sm" />
         </div>
 
         <div className="relative">
-          {/* Bubble */}
+          {/* Main bubble */}
           <div
             onClick={() => { playSound("click"); setShowActions(!showActions); setShowReact(false); setShowDeleteMenu(false); }}
-            className={`px-3 py-2 rounded-2xl text-sm cursor-pointer
+            className={`rounded-2xl text-sm cursor-pointer max-w-full
               ${isOwn
-                ? "bg-cyan-600/30 border border-cyan-500/40 text-white rounded-tr-sm"
-                : "bg-gray-700/60 border border-gray-600/40 text-white rounded-tl-sm"}`}>
+                ? "bg-cyan-700/40 border border-cyan-500/50 text-white rounded-tr-sm"
+                : "bg-slate-700/70 border border-slate-500/40 text-white rounded-tl-sm"}`}>
 
-            {deletedForEveryone ? (
-              <p className="text-cyber-muted italic text-xs">🚫 This message was deleted</p>
-            ) : (
-              <>
-                {msg.replyTo && (
-                  <div className="px-2 py-1 rounded-lg border-l-2 border-cyan-400/50 bg-black/20 text-xs text-cyber-muted mb-1">
-                    <p className="text-cyan-400/70 font-cyber text-xs">{msg.replyTo.username}</p>
-                    <p className="truncate">{msg.replyTo.text}</p>
-                  </div>
-                )}
-                {msg.imageUrl ? (
-                  <img src={msg.imageUrl} alt="shared" className="max-w-full rounded-lg max-h-40 object-cover" />
-                ) : (
-                  <p className="whitespace-pre-wrap break-words leading-snug">{msg.text}</p>
-                )}
-              </>
-            )}
+            {/* Name + ID inside bubble top */}
+            <div className={`px-3 pt-2 pb-0 flex items-center gap-1.5 flex-wrap ${isOwn ? "flex-row-reverse" : ""}`}>
+              <span className="text-xs font-cyber text-cyan-400">{msg.username}</span>
+              <span className="text-xs text-white/40 font-mono">{msg.memberId}</span>
+            </div>
 
-            <p className={`text-xs text-white/30 font-mono mt-0.5 ${isOwn ? "text-right" : "text-left"}`}>
-              {timeStr}
-            </p>
+            {/* Message content */}
+            <div className="px-3 pb-1 pt-1">
+              {deletedForEveryone ? (
+                <p className="text-white/40 italic text-xs">🚫 This message was deleted</p>
+              ) : (
+                <>
+                  {msg.replyTo && (
+                    <div className="px-2 py-1 rounded-lg border-l-2 border-cyan-400/50 bg-black/20 text-xs text-cyber-muted mb-1">
+                      <p className="text-cyan-400/70 font-cyber text-xs">{msg.replyTo.username}</p>
+                      <p className="truncate max-w-[200px]">{msg.replyTo.text}</p>
+                    </div>
+                  )}
+                  {msg.imageUrl ? (
+                    <img src={msg.imageUrl} alt="shared" className="max-w-[200px] rounded-lg max-h-40 object-cover" />
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words leading-snug max-w-[220px]">{msg.text}</p>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Time */}
+            <div className={`px-3 pb-1.5 ${isOwn ? "text-right" : "text-left"}`}>
+              <span className="text-xs text-white/30 font-mono">{timeStr}</span>
+            </div>
           </div>
 
           {/* Action buttons */}
@@ -100,11 +138,11 @@ const MessageBubble = ({ msg, isOwn, onReply, onDeleteForEveryone, onDeleteForMe
               <motion.div initial={{ opacity:0, scale:0.8 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0, scale:0.8 }}
                 className={`absolute ${isOwn ? "right-0" : "left-0"} -top-11 z-20 flex gap-1 glass-card rounded-xl p-1.5 neon-border-cyan shadow-xl`}>
                 <button onClick={() => { onReply?.(msg); setShowActions(false); playSound("click"); }}
-                  className="text-sm px-2 py-1 hover:bg-cyber-card rounded-lg" title="Reply">↩️</button>
+                  className="text-sm px-2 py-1 hover:bg-cyber-card rounded-lg">↩️</button>
                 <button onClick={() => { setShowReact(true); setShowActions(false); }}
-                  className="text-sm px-2 py-1 hover:bg-cyber-card rounded-lg" title="React">😊</button>
+                  className="text-sm px-2 py-1 hover:bg-cyber-card rounded-lg">😊</button>
                 <button onClick={() => { setShowDeleteMenu(true); setShowActions(false); }}
-                  className="text-sm px-2 py-1 hover:bg-cyber-card rounded-lg" title="Delete">🗑️</button>
+                  className="text-sm px-2 py-1 hover:bg-cyber-card rounded-lg">🗑️</button>
                 <button onClick={() => setShowActions(false)}
                   className="text-sm px-2 py-1 hover:bg-cyber-card rounded-lg text-cyber-muted">✕</button>
               </motion.div>
@@ -132,16 +170,16 @@ const MessageBubble = ({ msg, isOwn, onReply, onDeleteForEveryone, onDeleteForMe
                 <p className="text-xs font-cyber text-cyber-muted mb-2 px-1">DELETE MESSAGE</p>
                 {isOwn && (
                   <button onClick={handleDeleteForEveryone}
-                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors font-body">
+                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                     🗑️ Delete for everyone
                   </button>
                 )}
                 <button onClick={handleDeleteForMe}
-                  className="w-full text-left px-3 py-2 text-xs text-cyber-muted hover:bg-cyber-card rounded-lg transition-colors font-body">
+                  className="w-full text-left px-3 py-2 text-xs text-cyber-muted hover:bg-cyber-card rounded-lg transition-colors">
                   👁️ Delete for me
                 </button>
                 <button onClick={() => setShowDeleteMenu(false)}
-                  className="w-full text-left px-3 py-2 text-xs text-cyber-muted hover:bg-cyber-card rounded-lg transition-colors font-body">
+                  className="w-full text-left px-3 py-2 text-xs text-cyber-muted hover:bg-cyber-card rounded-lg transition-colors">
                   ✕ Cancel
                 </button>
               </motion.div>
@@ -149,13 +187,13 @@ const MessageBubble = ({ msg, isOwn, onReply, onDeleteForEveryone, onDeleteForMe
           </AnimatePresence>
         </div>
 
-        {/* Reactions */}
-        {msg.reactions && Object.entries(msg.reactions).some(([,v]) => v.length > 0) && (
+        {/* Reactions display */}
+        {Object.entries(localReactions).some(([,v]) => v.length > 0) && (
           <div className={`flex gap-1 flex-wrap mt-0.5 ${isOwn ? "justify-end" : "justify-start"}`}>
-            {Object.entries(msg.reactions).map(([emoji, users]) =>
+            {Object.entries(localReactions).map(([emoji, users]) =>
               users.length > 0 ? (
                 <button key={emoji} onClick={() => react(emoji)}
-                  className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full border
+                  className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full border transition-colors
                     ${users.includes(user?.uid) ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-400" : "border-gray-600 bg-gray-700/50 text-gray-400"}`}>
                   {emoji} {users.length}
                 </button>

@@ -9,6 +9,7 @@ import { processBotCommand, BotMessage } from "./GroupBot";
 import { notify } from "./NotificationSystem";
 import { playSound } from "./SoundManager";
 import { getRank } from "./RankSystem";
+import VoiceRecorder from "./VoiceRecorder";
 
 const ChatWindow = ({ onMenuOpen }) => {
   const { user, profile, saveProfile } = useAuth();
@@ -18,6 +19,7 @@ const ChatWindow = ({ onMenuOpen }) => {
   const [showInfo, setShowInfo] = useState(false);
   const [botMsgs, setBotMsgs] = useState({});
   const [replyTo, setReplyTo] = useState(null);
+  const [showVoice, setShowVoice] = useState(false);
   const endRef = useRef(null);
   const typingTimer = useRef(null);
   const fileRef = useRef(null);
@@ -122,6 +124,26 @@ const ChatWindow = ({ onMenuOpen }) => {
     setTyping(false);
     socket.emit("typing:stop", { room: activeRoom });
   }, [text, activeRoom, profile, user, currentRoom, onlineHere, awardXP, replyTo, addMessage]);
+
+  const handleVoiceSend = (audioDataUrl) => {
+    const localMsg = {
+      id: Date.now() + Math.random(),
+      uid: user?.uid,
+      username: profile?.username,
+      avatar: profile?.avatar,
+      memberId: profile?.memberId,
+      xp: profile?.xp || 0,
+      text: "🎤 Voice message",
+      audioUrl: audioDataUrl,
+      room: activeRoom,
+      timestamp: Date.now(),
+      reactions: {},
+    };
+    addMessage(localMsg);
+    socket.emit("message:send", { text: "🎤 Voice message", audioUrl: audioDataUrl, room: activeRoom, memberId: profile?.memberId, xp: profile?.xp || 0 });
+    setShowVoice(false);
+    awardXP();
+  };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -242,6 +264,8 @@ const ChatWindow = ({ onMenuOpen }) => {
       {/* Input */}
       <div className="glass border-t border-cyber-border p-3 flex-shrink-0">
         <div className="flex gap-2 items-end">
+          <button onClick={() => { playSound("click"); setShowVoice(!showVoice); }}
+            className="text-cyber-muted hover:text-cyber-cyan transition-colors text-xl flex-shrink-0 mb-2">🎤</button>
           <button onClick={() => fileRef.current.click()}
             className="text-cyber-muted hover:text-cyber-cyan transition-colors text-xl flex-shrink-0 mb-2">
             🖼️

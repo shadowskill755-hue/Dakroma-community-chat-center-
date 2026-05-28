@@ -1,13 +1,10 @@
-// ============================================================
-// ChatWindow – replies, pictures, bot commands, group info
-// ============================================================
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth }      from "../context/AuthContext";
-import useChatStore     from "../context/chatStore";
-import socket           from "../services/socket";
-import MessageBubble    from "./MessageBubble";
-import GroupInfo        from "./GroupInfo";
+import { useAuth } from "../context/AuthContext";
+import useChatStore from "../context/chatStore";
+import socket from "../services/socket";
+import MessageBubble from "./MessageBubble";
+import GroupInfo from "./GroupInfo";
 import { processBotCommand, BotMessage } from "./GroupBot";
 import { notify } from "./NotificationSystem";
 import { playSound } from "./SoundManager";
@@ -15,22 +12,24 @@ import { getRank } from "./RankSystem";
 
 const ChatWindow = ({ onMenuOpen }) => {
   const { user, profile, saveProfile } = useAuth();
-  const { messages, typingUsers, activeRoom, rooms, onlineUsers, systemMsgs } = useChatStore();
-  const allRooms = [...rooms, ...JSON.parse(localStorage.getItem("dakroma_joined_rooms") || "[]")];
-  const [text, setText]         = useState("");
-  const [typing, setTyping]     = useState(false);
+  const { messages, typingUsers, activeRoom, rooms, onlineUsers, systemMsgs, addMessage } = useChatStore();
+  const [text, setText] = useState("");
+  const [typing, setTyping] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  const [botMsgs, setBotMsgs]   = useState({});
-  const [replyTo, setReplyTo]   = useState(null);
-  const [showImgBtn, setShowImgBtn] = useState(false);
-  const endRef      = useRef(null);
+  const [botMsgs, setBotMsgs] = useState({});
+  const [replyTo, setReplyTo] = useState(null);
+  const endRef = useRef(null);
   const typingTimer = useRef(null);
-  const fileRef     = useRef(null);
+  const fileRef = useRef(null);
 
+  const allJoinedRooms = [
+    ...rooms,
+    ...JSON.parse(localStorage.getItem("dakroma_joined_rooms") || "[]")
+  ];
   const roomMessages = messages[activeRoom] || [];
-  const roomTyping   = typingUsers[activeRoom] || [];
-  const currentRoom = allRooms.find((r) => r.id === activeRoom);
-  const onlineHere   = onlineUsers.filter((u) => u.room === activeRoom);
+  const roomTyping = typingUsers[activeRoom] || [];
+  const currentRoom = allJoinedRooms.find((r) => r.id === activeRoom);
+  const onlineHere = onlineUsers.filter((u) => u.room === activeRoom);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -89,6 +88,24 @@ const ChatWindow = ({ onMenuOpen }) => {
       return;
     }
 
+    // Add message locally IMMEDIATELY for instant feedback
+    const localMsg = {
+      id: Date.now() + Math.random(),
+      uid: user?.uid,
+      username: profile?.username,
+      avatar: profile?.avatar,
+      memberId: profile?.memberId,
+      xp: profile?.xp || 0,
+      text: trimmed,
+      imageUrl: null,
+      replyTo: replyTo ? { id: replyTo.id, text: replyTo.text, username: replyTo.username } : null,
+      room: activeRoom,
+      timestamp: Date.now(),
+      reactions: {},
+    };
+    addMessage(localMsg);
+
+    // Also send to server
     socket.emit("message:send", {
       text: trimmed,
       room: activeRoom,
@@ -96,6 +113,7 @@ const ChatWindow = ({ onMenuOpen }) => {
       memberId: profile?.memberId,
       xp: profile?.xp || 0,
     });
+
     awardXP();
     setText("");
     setReplyTo(null);
@@ -103,13 +121,27 @@ const ChatWindow = ({ onMenuOpen }) => {
     clearTimeout(typingTimer.current);
     setTyping(false);
     socket.emit("typing:stop", { room: activeRoom });
-  }, [text, activeRoom, profile, user, currentRoom, onlineHere, awardXP, replyTo]);
+  }, [text, activeRoom, profile, user, currentRoom, onlineHere, awardXP, replyTo, addMessage]);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
+      const localMsg = {
+        id: Date.now() + Math.random(),
+        uid: user?.uid,
+        username: profile?.username,
+        avatar: profile?.avatar,
+        memberId: profile?.memberId,
+        xp: profile?.xp || 0,
+        text: "📷 Shared an image",
+        imageUrl: ev.target.result,
+        room: activeRoom,
+        timestamp: Date.now(),
+        reactions: {},
+      };
+      addMessage(localMsg);
       socket.emit("message:send", {
         text: "📷 Shared an image",
         imageUrl: ev.target.result,
@@ -150,22 +182,6 @@ const ChatWindow = ({ onMenuOpen }) => {
         </div>
       </div>
 
-      {/* System messages */}
-      <AnimatePresence>
-        {systemMsgs.length > 0 && (
-          <div className="absolute top-16 left-0 right-0 z-10 flex flex-col items-center gap-1 pointer-events-none">
-            {systemMsgs.map((s) => (
-              <motion.div key={s.id}
-                initial={{ opacity:0, y:-10 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
-                transition={{ duration:0.6 }}
-                className="glass rounded-full px-4 py-1 text-xs font-mono text-cyber-yellow border border-yellow-500/20">
-                {s.text}
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </AnimatePresence>
-
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
         {allMessages.length === 0 ? (
@@ -183,14 +199,12 @@ const ChatWindow = ({ onMenuOpen }) => {
               <MessageBubble
                 key={msg.id}
                 msg={msg}
-                isOwn={msg.uid === user?.uid}
+                isOwn={msg.uid === user?.uid || msg.username === profile?.username}
                 onReply={setReplyTo}
               />
             )
           )
         )}
-
-        {/* Typing indicators */}
         <AnimatePresence>
           {roomTyping.filter((u) => u.uid !== user?.uid).map((u) => (
             <motion.div key={u.uid} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
@@ -228,13 +242,11 @@ const ChatWindow = ({ onMenuOpen }) => {
       {/* Input */}
       <div className="glass border-t border-cyber-border p-3 flex-shrink-0">
         <div className="flex gap-2 items-end">
-          {/* Image upload button */}
           <button onClick={() => fileRef.current.click()}
             className="text-cyber-muted hover:text-cyber-cyan transition-colors text-xl flex-shrink-0 mb-2">
             🖼️
           </button>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-
           <div className="flex-1 relative">
             <textarea
               className="cyber-input w-full rounded-xl px-4 py-3 text-sm resize-none leading-relaxed"
@@ -246,7 +258,6 @@ const ChatWindow = ({ onMenuOpen }) => {
               style={{ maxHeight:"120px", overflowY:"auto" }}
             />
           </div>
-
           <motion.button onClick={send} whileHover={{ scale:1.05 }} whileTap={{ scale:0.95 }}
             disabled={!text.trim()}
             className="btn-cyber rounded-xl px-4 py-3 text-lg disabled:opacity-30 flex-shrink-0"
@@ -254,8 +265,6 @@ const ChatWindow = ({ onMenuOpen }) => {
             ⚡
           </motion.button>
         </div>
-
-        {/* TikTok link */}
         <div className="mt-2 flex justify-center">
           <a href="https://vm.tiktok.com/ZS9Y5So3xkPwN-vpVYK/" target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 glass rounded-full px-4 py-1.5 neon-border-pink hover:border-cyber-pink transition-all group">
@@ -266,7 +275,6 @@ const ChatWindow = ({ onMenuOpen }) => {
         </div>
       </div>
 
-      {/* Group Info */}
       <AnimatePresence>
         {showInfo && (
           <GroupInfo

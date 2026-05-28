@@ -1,22 +1,25 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import socket from "../services/socket";
 import { playSound } from "./SoundManager";
 import { RankBadge } from "./RankSystem";
 
-const REACTIONS = ["🔥","⚡","💀","🤖","👾","💯","😈","🙏"];
+const REACTIONS = ["🔥","⚡","💀","🤖","👾","💯","😈","🙏","❤️","😂","😮","😢","👍","👎","🎮","🏆"];
 
 const MessageBubble = ({ msg, isOwn, onReply }) => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [showActions, setShowActions] = useState(false);
   const [showReact, setShowReact] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [deletedForEveryone, setDeletedForEveryone] = useState(msg.deletedForEveryone || false);
   const [localReactions, setLocalReactions] = useState(msg.reactions || {});
+  const [customEmoji, setCustomEmoji] = useState("");
+  const emojiInputRef = useRef(null);
 
   const react = (emoji) => {
+    if (!emoji) return;
     const uid = user?.uid;
     const updated = { ...localReactions };
     if (!updated[emoji]) updated[emoji] = [];
@@ -28,6 +31,7 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
     setLocalReactions(updated);
     socket.emit("message:react", { messageId: msg.id, emoji, room: msg.room });
     setShowReact(false);
+    setCustomEmoji("");
     playSound("click");
   };
 
@@ -40,7 +44,6 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
     socket.emit("message:delete", { messageId: msg.id, room: msg.room });
     setDeletedForEveryone(true);
     setShowDeleteMenu(false);
-    // Remove from localStorage
     try {
       const msgs = JSON.parse(localStorage.getItem("dakroma_messages") || "{}");
       const room = msg.room || "global";
@@ -55,7 +58,6 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
   const handleDeleteForMe = () => {
     setDeleted(true);
     setShowDeleteMenu(false);
-    // Remove from localStorage for this user only
     try {
       const msgs = JSON.parse(localStorage.getItem("dakroma_messages") || "{}");
       const room = msg.room || "global";
@@ -76,7 +78,6 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
       transition={{ duration:0.2 }}
       className={`flex gap-2 ${isOwn ? "flex-row-reverse" : "flex-row"} items-end mb-2`}>
 
-      {/* Avatar */}
       <img
         src={msg.avatar || `https://api.dicebear.com/7.x/cyberpunk/svg?seed=${msg.username}`}
         alt={msg.username}
@@ -84,14 +85,11 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
       />
 
       <div className={`max-w-[75%] flex flex-col ${isOwn ? "items-end" : "items-start"}`}>
-
-        {/* Rank badge on top */}
         <div className={`flex items-center gap-1 mb-0.5 ${isOwn ? "flex-row-reverse" : ""}`}>
           <RankBadge xp={msg.xp || 0} size="sm" />
         </div>
 
         <div className="relative">
-          {/* Main bubble */}
           <div
             onClick={() => { playSound("click"); setShowActions(!showActions); setShowReact(false); setShowDeleteMenu(false); }}
             className={`rounded-2xl text-sm cursor-pointer max-w-full
@@ -99,13 +97,11 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
                 ? "bg-cyan-700/40 border border-cyan-500/50 text-white rounded-tr-sm"
                 : "bg-slate-700/70 border border-slate-500/40 text-white rounded-tl-sm"}`}>
 
-            {/* Name + ID inside bubble top */}
             <div className={`px-3 pt-2 pb-0 flex items-center gap-1.5 flex-wrap ${isOwn ? "flex-row-reverse" : ""}`}>
               <span className="text-xs font-cyber text-cyan-400">{msg.username}</span>
               <span className="text-xs text-white/40 font-mono">{msg.memberId}</span>
             </div>
 
-            {/* Message content */}
             <div className="px-3 pb-1 pt-1">
               {deletedForEveryone ? (
                 <p className="text-white/40 italic text-xs">🚫 This message was deleted</p>
@@ -119,6 +115,8 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
                   )}
                   {msg.imageUrl ? (
                     <img src={msg.imageUrl} alt="shared" className="max-w-[200px] rounded-lg max-h-40 object-cover" />
+                  ) : msg.audioUrl ? (
+                    <audio controls src={msg.audioUrl} className="max-w-[200px]" />
                   ) : (
                     <p className="whitespace-pre-wrap break-words leading-snug max-w-[220px]">{msg.text}</p>
                   )}
@@ -126,7 +124,6 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
               )}
             </div>
 
-            {/* Time */}
             <div className={`px-3 pb-1.5 ${isOwn ? "text-right" : "text-left"}`}>
               <span className="text-xs text-white/30 font-mono">{timeStr}</span>
             </div>
@@ -153,11 +150,30 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
           <AnimatePresence>
             {showReact && (
               <motion.div initial={{ opacity:0, scale:0.8 }} animate={{ opacity:1, scale:1 }} exit={{ opacity:0, scale:0.8 }}
-                className={`absolute ${isOwn ? "right-0" : "left-0"} -top-12 z-20 flex gap-1 glass-card rounded-xl p-2 neon-border-cyan shadow-xl`}>
-                {REACTIONS.map((e) => (
-                  <button key={e} onClick={() => react(e)} className="text-lg hover:scale-125 transition-transform">{e}</button>
-                ))}
-                <button onClick={() => setShowReact(false)} className="text-xs text-cyber-muted ml-1 self-center">✕</button>
+                className={`absolute ${isOwn ? "right-0" : "left-0"} -top-20 z-20 glass-card rounded-xl p-2 neon-border-cyan shadow-xl`}
+                style={{ minWidth:"220px" }}>
+                {/* Quick reactions */}
+                <div className="flex gap-1 flex-wrap mb-2">
+                  {REACTIONS.map((e) => (
+                    <button key={e} onClick={() => react(e)} className="text-lg hover:scale-125 transition-transform">{e}</button>
+                  ))}
+                </div>
+                {/* Custom emoji input */}
+                <div className="flex gap-1">
+                  <input
+                    ref={emojiInputRef}
+                    type="text"
+                    value={customEmoji}
+                    onChange={(e) => setCustomEmoji(e.target.value)}
+                    placeholder="Type any emoji..."
+                    className="cyber-input flex-1 rounded-lg px-2 py-1 text-sm"
+                    maxLength={2}
+                  />
+                  <button onClick={() => react(customEmoji)}
+                    className="btn-cyber rounded-lg px-2 py-1 text-xs">+</button>
+                  <button onClick={() => setShowReact(false)}
+                    className="text-xs text-cyber-muted px-1">✕</button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

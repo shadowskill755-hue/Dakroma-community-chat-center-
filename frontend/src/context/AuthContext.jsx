@@ -4,6 +4,7 @@ const AuthContext = createContext(null);
 
 const STORAGE_KEY = "dakroma_profile";
 const USERS_KEY = "dakroma_users";
+const MEMBERS_KEY = "dakroma_group_members";
 
 const loadProfile = () => {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); }

@@ -35,6 +35,7 @@ const HomePage = ({ onOpenSidebar }) => {
 
   const allUsers = (() => {
     try { return Object.values(JSON.parse(localStorage.getItem("dakroma_users") || "{}")); }
+    // also check all registered users across all groups
     catch { return []; }
   })();
 

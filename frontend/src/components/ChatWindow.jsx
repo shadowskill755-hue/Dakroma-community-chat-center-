@@ -199,7 +199,7 @@ const ChatWindow = ({ onMenuOpen }) => {
               <MessageBubble
                 key={msg.id}
                 msg={msg}
-                isOwn={msg.uid === user?.uid || msg.username === profile?.username}
+                isOwn={msg.username === profile?.username}
                 onReply={setReplyTo}
               />
             )

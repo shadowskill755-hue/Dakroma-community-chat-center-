@@ -40,7 +40,7 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
         {/* Name + rank - OUTSIDE bubble, small */}
         {!isOwn && (
           <div className="flex items-center gap-1 mb-0.5 px-1">
-            <span className="text-xs font-cyber text-cyan-400">{msg.username}</span>
+            <span className="text-xs font-cyber text-cyan-400">{msg.username}</span><span className="text-xs text-cyber-muted/50 font-mono ml-1">{msg.memberId}</span>
             <span className="text-xs text-cyber-muted/50 font-mono">{msg.memberId}</span>
           </div>
         )}

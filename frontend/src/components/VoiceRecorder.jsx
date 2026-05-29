@@ -1,97 +1,81 @@
-// ============================================================
-// VoiceRecorder - Record and send voice messages
-// ============================================================
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { playSound } from "./SoundManager";
-import { notify } from "./NotificationSystem";
 
-const VoiceRecorder = ({ onSend, onCancel }) => {
-  const [recording, setRecording] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [audioBlob, setAudioBlob] = useState(null);
-  const [audioUrl, setAudioUrl] = useState(null);
-  const mediaRef = useRef(null);
-  const timerRef = useRef(null);
-  const chunksRef = useRef([]);
+const VoiceRecorder = ({ onSend, onClose }) => {
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorder = useRef(null);
+  const audioChunks = useRef([]);
 
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      mediaRef.current = recorder;
-      chunksRef.current = [];
-
-      recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      mediaRecorder.current = new MediaRecorder(stream);
+      audioChunks.current = [];
+      mediaRecorder.current.ondataavailable = (e) => audioChunks.current.push(e.data);
+      mediaRecorder.current.onstop = () => {
+        const blob = new Blob(audioChunks.current, { type: "audio/webm" });
         const url = URL.createObjectURL(blob);
-        setAudioBlob(blob);
-        setAudioUrl(url);
-        stream.getTracks().forEach(t => t.stop());
+        onSend(url);
+        playSound("levelup");
       };
-
-      recorder.start();
-      setRecording(true);
-      setDuration(0);
-      timerRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+      mediaRecorder.current.start();
+      setIsRecording(true);
       playSound("click");
-    } catch {
-      notify("❌ Microphone access denied!", "error");
+    } catch (err) {
+      console.error("Mic access denied:", err);
     }
   };
 
   const stopRecording = () => {
-    mediaRef.current?.stop();
-    setRecording(false);
-    clearInterval(timerRef.current);
-    playSound("message");
+    if (mediaRecorder.current && isRecording) {
+      mediaRecorder.current.stop();
+      mediaRecorder.current.stream.getTracks().forEach((track) => track.stop());
+      setIsRecording(false);
+    }
   };
-
-  const sendVoice = () => {
-    if (!audioBlob) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      onSend(e.target.result);
-      playSound("message");
-    };
-    reader.readAsDataURL(audioBlob);
-  };
-
-  const formatTime = (s) => `${Math.floor(s/60).toString().padStart(2,"0")}:${(s%60).toString().padStart(2,"0")}`;
 
   return (
-    <motion.div initial={{ opacity:0, y:10 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
-      className="flex items-center gap-2 p-2 glass rounded-xl border border-cyber-border">
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+        className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40">
+        <div className="glass-card rounded-2xl p-6 neon-border-cyan flex flex-col items-center gap-4 min-w-[280px]">
+          <h3 className="font-cyber text-sm neon-text-cyan">VOICE RECORDER</h3>
+          
+          {/* Recording Indicator */}
+          <div className="flex items-center gap-3 justify-center">
+            {isRecording && (
+              <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.6, repeat: Infinity }}
+                className="w-4 h-4 rounded-full bg-red-500 shadow-lg shadow-red-500/50" />
+            )}
+            <span className="text-3xl">
+              {isRecording ? "🎙️⚡" : "🎙️"}
+            </span>
+            {isRecording && (
+              <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+                className="w-4 h-4 rounded-full bg-red-500 shadow-lg shadow-red-500/50" />
+            )}
+          </div>
 
-      {!audioUrl ? (
-        <>
-          {recording ? (
-            <>
-              <motion.div animate={{ scale:[1,1.2,1] }} transition={{ repeat:Infinity, duration:1 }}
-                className="w-3 h-3 rounded-full bg-red-500" />
-              <span className="text-xs font-mono text-red-400">{formatTime(duration)}</span>
-              <button onClick={stopRecording}
-                className="btn-cyber rounded-lg px-3 py-1.5 text-xs">⏹ Stop</button>
-            </>
-          ) : (
-            <button onClick={startRecording}
-              className="btn-cyber rounded-lg px-3 py-1.5 text-xs flex items-center gap-1">
-              🎤 Hold to Record
+          {/* Status Text */}
+          <p className="text-xs text-cyber-muted font-mono">
+            {isRecording ? "🔴 RECORDING..." : "Ready to record"}
+          </p>
+
+          {/* Buttons */}
+          <div className="flex gap-2 w-full">
+            <button onClick={onClose}
+              className="flex-1 btn-cyber btn-cyber-pink rounded-xl py-2 text-xs font-cyber">
+              CANCEL
             </button>
-          )}
-        </>
-      ) : (
-        <>
-          <audio controls src={audioUrl} className="flex-1 h-8" style={{ maxWidth:"160px" }} />
-          <button onClick={sendVoice} className="btn-cyber rounded-lg px-3 py-1.5 text-xs">⚡ Send</button>
-          <button onClick={() => { setAudioUrl(null); setAudioBlob(null); }}
-            className="text-cyber-muted hover:text-cyber-pink text-sm">🗑️</button>
-        </>
-      )}
-
-      <button onClick={onCancel} className="text-cyber-muted hover:text-cyber-pink text-sm">✕</button>
-    </motion.div>
+            <button onClick={isRecording ? stopRecording : startRecording}
+              className="flex-1 btn-cyber rounded-xl py-2 text-xs font-cyber">
+              {isRecording ? "STOP ⏹️" : "START 🎙️"}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 

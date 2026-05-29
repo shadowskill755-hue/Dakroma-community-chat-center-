@@ -48,6 +48,14 @@ const HomePage = ({ onOpenSidebar }) => {
       searchId = "DK-" + searchId;
     }
 
+    // Handle both "DK-XXXXX" and "XXXXX" formats
+    let searchId = friendId.trim().toUpperCase();
+    if (searchId.startsWith("DK-")) {
+      searchId = searchId;
+    } else {
+      searchId = "DK-" + searchId;
+    }
+
     if (!friendId.trim()) return;
     const found = allUsers.find((u) => (u.memberId || "").toUpperCase() === searchId) || allUsers.find((u) => (u.username || "").toLowerCase() === friendId.trim().toLowerCase());
     if (!found) { notify("❌ Member ID not found!", "error"); return; }

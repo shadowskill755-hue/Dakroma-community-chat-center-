@@ -17,11 +17,17 @@ const useSocket = () => {
       memberId: profile?.memberId,
       xp: profile?.xp || 0,
     });
+
+    // Join active room immediately
+    const activeRoom = useChatStore.getState().activeRoom || "global";
+    socket.emit("room:join", { roomId: activeRoom, roomName: activeRoom });
+
     socket.on("message:receive", (msg) => addMessage(msg));
     socket.on("users:online", (users) => setOnlineUsers(users));
     socket.on("typing:update", (data) => setTyping(data));
     socket.on("message:reaction", (data) => applyReaction(data));
     socket.on("room:created", (room) => useChatStore.getState().addRoom(room));
+
     return () => {
       socket.off("message:receive");
       socket.off("users:online");

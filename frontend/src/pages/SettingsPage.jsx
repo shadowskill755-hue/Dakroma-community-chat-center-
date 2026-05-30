@@ -131,7 +131,6 @@ This group is the main hub for the Free Fire MENA community!`
 const SettingsPage = ({ onClose, onLogout }) => {
   const clearCache = () => {
     localStorage.removeItem("dakroma_messages");
-    localStorage.removeItem("dakroma_joined_rooms");
     window.location.reload();
   };
   const { profile } = useAuth();

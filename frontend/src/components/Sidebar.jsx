@@ -60,6 +60,13 @@ const Sidebar = ({ mobileOpen, onClose, onGoHome, onRoomSelect, onOpenSettings, 
 
   const afterWelcome = (room) => {
     socket.emit("room:join", { roomId: room.id, roomName: room.name });
+    // Make sure socket is connected before joining
+    if (!socket.connected) {
+      socket.connect();
+      socket.once("connect", () => {
+        socket.emit("room:join", { roomId: room.id, roomName: room.name });
+      });
+    }
     socket.emit("user:join", { uid: user?.uid, username: profile?.username, avatar: profile?.avatar, memberId: profile?.memberId, xp: profile?.xp || 0 });
     setActiveRoom(room.id);
     setWelcomeRoom(null);

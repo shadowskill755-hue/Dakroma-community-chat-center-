@@ -300,6 +300,12 @@ const ChatWindow = ({ onMenuOpen }) => {
       </div>
 
       <AnimatePresence>
+        {showVoice && (
+          <VoiceRecorder onSend={handleVoiceSend} onClose={() => setShowVoice(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {showInfo && (
           <GroupInfo
             group={currentRoom}

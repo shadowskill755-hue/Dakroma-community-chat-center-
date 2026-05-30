@@ -95,7 +95,8 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
             className={`rounded-2xl text-sm cursor-pointer max-w-full
               ${isOwn
                 ? "bg-cyan-700/40 border border-cyan-500/50 text-white rounded-tr-sm"
-                : "bg-slate-700/70 border border-slate-500/40 text-white rounded-tl-sm"}`}>
+                : "bg-slate-700/70 border border-slate-500/40 text-white rounded-tl-sm"}
+              max-w-[75%]`}>
 
             <div className={`px-3 pt-2 pb-0 flex items-center gap-1.5 flex-wrap ${isOwn ? "flex-row-reverse" : ""}`}>
               <span className="text-xs font-cyber text-cyan-400">{msg.username}</span>
@@ -118,7 +119,7 @@ const MessageBubble = ({ msg, isOwn, onReply }) => {
                   ) : msg.audioUrl ? (
                     <audio controls src={msg.audioUrl} className="max-w-[200px]" />
                   ) : (
-                    <p className="whitespace-pre-wrap break-words leading-snug max-w-[220px]">{msg.text}</p>
+                    <p className="whitespace-pre-wrap break-words leading-snug">{msg.text}</p>
                   )}
                 </>
               )}

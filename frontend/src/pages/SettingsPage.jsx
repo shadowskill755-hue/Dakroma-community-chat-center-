@@ -129,6 +129,11 @@ This group is the main hub for the Free Fire MENA community!`
 ];
 
 const SettingsPage = ({ onClose, onLogout }) => {
+  const clearCache = () => {
+    localStorage.removeItem("dakroma_messages");
+    localStorage.removeItem("dakroma_joined_rooms");
+    window.location.reload();
+  };
   const { profile } = useAuth();
   const [showManual, setShowManual] = useState(false);
   const [openSection, setOpenSection] = useState(null);
@@ -221,6 +226,9 @@ const SettingsPage = ({ onClose, onLogout }) => {
         <button onClick={() => { playSound("click"); setShowLogoutConfirm(true); }}
           className="w-full py-4 rounded-2xl border border-red-500/50 bg-red-500/10 font-cyber text-sm tracking-widest transition-all hover:bg-red-500/20"
           style={{ color:"#ff4444" }}>
+          🗑️ CLEAR CACHE</button>
+          <button onClick={clearCache}
+            className="w-full btn-cyber rounded-xl py-3 text-xs font-cyber text-yellow-400 border-yellow-400/50 mb-2">
           ⏻ LOG OUT
         </button>
       </div>

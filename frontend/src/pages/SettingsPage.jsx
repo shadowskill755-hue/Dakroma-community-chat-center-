@@ -226,10 +226,12 @@ const SettingsPage = ({ onClose, onLogout }) => {
         <button onClick={() => { playSound("click"); setShowLogoutConfirm(true); }}
           className="w-full py-4 rounded-2xl border border-red-500/50 bg-red-500/10 font-cyber text-sm tracking-widest transition-all hover:bg-red-500/20"
           style={{ color:"#ff4444" }}>
-          🗑️ CLEAR CACHE</button>
-          <button onClick={clearCache}
-            className="w-full btn-cyber rounded-xl py-3 text-xs font-cyber text-yellow-400 border-yellow-400/50 mb-2">
           ⏻ LOG OUT
+        </button>
+        <button onClick={clearCache}
+          className="w-full py-3 rounded-2xl border border-yellow-500/50 bg-yellow-500/10 font-cyber text-sm tracking-widest transition-all hover:bg-yellow-500/20 mt-2"
+          style={{ color:"#ffcc00" }}>
+          🗑️ CLEAR CACHE
         </button>
       </div>
 
